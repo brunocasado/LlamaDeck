@@ -11,6 +11,8 @@ sealed class Program
 
     static void Main(string[] args)
     {
+        CrashLogger.Install();
+
         _mutex = new Mutex(true, MutexName, out var createdNew);
         if (!createdNew)
         {
@@ -18,6 +20,7 @@ sealed class Program
             return;
         }
 
+        CrashLogger.Log("startup", $"LlamaSwapManager starting. LogPath={CrashLogger.LogPath}");
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 

@@ -67,9 +67,11 @@ public partial class MainWindow : Window
         {
             if (textBox is null) return;
             var text = !string.IsNullOrEmpty(textBox.SelectedText) ? textBox.SelectedText : textBox.Text;
+            LlamaSwapManager.Desktop.CrashLogger.Log("clipboard.copy.begin", $"length={text?.Length ?? 0}; selectedLength={textBox.SelectedText?.Length ?? 0}");
             var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
             if (clipboard is null) return;
             await clipboard.SetValueAsync(DataFormat.Text, text ?? string.Empty);
+            LlamaSwapManager.Desktop.CrashLogger.Log("clipboard.copy.end", "success");
             if (DataContext is MainViewModel vm) vm.ReportUiInfo("Extra args copied.");
         }
         catch (Exception ex)
@@ -85,6 +87,7 @@ public partial class MainWindow : Window
             if (textBox is null) return;
             var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
             if (clipboard is null) return;
+            LlamaSwapManager.Desktop.CrashLogger.Log("clipboard.paste.begin", "reading clipboard");
             var text = await clipboard.TryGetTextAsync();
             if (text is null) return;
 
@@ -92,6 +95,7 @@ public partial class MainWindow : Window
             if (DataContext is MainViewModel vm && vm.SelectedModel is not null)
                 vm.SelectedModel.ExtraArgs = text;
             textBox.Focus();
+            LlamaSwapManager.Desktop.CrashLogger.Log("clipboard.paste.end", $"length={text.Length}");
             if (DataContext is MainViewModel vm2) vm2.ReportUiInfo("Extra args pasted.");
         }
         catch (Exception ex)
@@ -105,7 +109,6 @@ public partial class MainWindow : Window
         if (DataContext is MainViewModel vm && sender is Border border && border.DataContext is ModelEditItem model)
         {
             e.Handled = true;
-            FocusManager?.Focus(null);
 
             // Let the currently focused TextBox commit clipboard/selection/text changes
             // before SelectedModel swaps the editor DataContext underneath it.
@@ -113,7 +116,9 @@ public partial class MainWindow : Window
             {
                 try
                 {
+                    LlamaSwapManager.Desktop.CrashLogger.Log("model.select.begin", model.ModelId ?? "<null>");
                     vm.ExecuteSelectModel(model);
+                    LlamaSwapManager.Desktop.CrashLogger.Log("model.select.end", model.ModelId ?? "<null>");
                 }
                 catch (Exception ex)
                 {
