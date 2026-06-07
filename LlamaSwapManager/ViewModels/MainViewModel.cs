@@ -909,19 +909,11 @@ public partial class MainViewModel : ObservableObject
     {
         if (!MatrixCombinations.Any())
         {
-            MatrixVarsText = string.Empty;
+            MatrixVarsText = BuildMatrixVarsTextFromModels();
             MatrixSetsText = string.Empty;
             return;
         }
-        var aliases = new List<string>();
-        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var model in Models.Where(m => !string.IsNullOrWhiteSpace(m.ModelId)))
-        {
-            var alias = MakeAlias(model.ModelId, used);
-            used.Add(alias);
-            aliases.Add($"{alias} = {model.ModelId}");
-        }
-        MatrixVarsText = string.Join(Environment.NewLine, aliases);
+        MatrixVarsText = BuildMatrixVarsTextFromModels();
         var aliasMap = ParseKeyValueLines(MatrixVarsText).ToDictionary(x => x.Value, x => x.Key);
         var setLines = new List<string>();
         foreach (var combo in MatrixCombinations.Where(c => !string.IsNullOrWhiteSpace(c.Name)))
@@ -930,8 +922,19 @@ public partial class MainViewModel : ObservableObject
             if (selected.Any()) setLines.Add($"{combo.Name.Trim()} = {string.Join(" & ", selected)}");
         }
         MatrixSetsText = string.Join(Environment.NewLine, setLines);
-        if (!setLines.Any())
-            MatrixVarsText = string.Empty;
+    }
+
+    private string BuildMatrixVarsTextFromModels()
+    {
+        var aliases = new List<string>();
+        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var model in Models.Where(m => !string.IsNullOrWhiteSpace(m.ModelId)))
+        {
+            var alias = MakeAlias(model.ModelId, used);
+            used.Add(alias);
+            aliases.Add($"{alias} = {model.ModelId}");
+        }
+        return string.Join(Environment.NewLine, aliases);
     }
 
     private static string MakeAlias(string modelId, HashSet<string> used)

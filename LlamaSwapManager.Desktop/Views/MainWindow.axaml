@@ -390,109 +390,118 @@
 
       <!-- ===================== MATRIX TAB ===================== -->
       <TabItem Header="Matrix">
-        <Grid RowDefinitions="Auto,*,Auto" Margin="20">
-          <!-- Fixed header / actions -->
-          <StackPanel Grid.Row="0" Spacing="16" Margin="0,0,0,12">
+        <Grid RowDefinitions="Auto,*" Margin="20">
+          <StackPanel Grid.Row="0" Spacing="12" Margin="0,0,0,12">
             <TextBlock Text="Matrix Configuration" FontSize="16" FontWeight="Bold" Foreground="#CDD6F4" />
             <Border Padding="16" Background="#11111B" BorderBrush="#313244" BorderThickness="1" CornerRadius="10">
-              <StackPanel Spacing="10">
-                <TextBlock Text="Definitive visual Matrix builder" FontSize="14" FontWeight="Bold" Foreground="#CDD6F4" />
-                <TextBlock Text="Create combinations of models that can stay loaded together."
-                           FontSize="12" Foreground="#A6ADC8" TextWrapping="Wrap" />
-                <StackPanel Orientation="Horizontal" Spacing="10">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <StackPanel Grid.Column="0" Spacing="6">
+                  <TextBlock Text="Model loading groups and eviction priority" FontSize="14" FontWeight="Bold" Foreground="#CDD6F4" />
+                  <TextBlock Text="Create combinations, then decide what unloads first." FontSize="12" Foreground="#A6ADC8" TextWrapping="Wrap" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="Save Matrix to config.yml" Command="{Binding SaveAndPreviewCommand}" Classes="success" Padding="12,6" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+          </StackPanel>
+
+          <TabControl Grid.Row="1" Background="#1E1E2E" BorderBrush="#313244">
+            <TabItem Header="Combinations">
+              <Grid RowDefinitions="Auto,*" Margin="0,14,0,0">
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,12">
                   <Button Content="+ Add Combination" Command="{Binding AddMatrixCombinationCommand}" Classes="success" Padding="12,6" />
                   <Button Content="Create 'all' Combination" Command="{Binding CreateAllModelsMatrixSetCommand}" Padding="12,6" />
-                  <Button Content="Save Matrix to config.yml" Command="{Binding SaveAndPreviewCommand}" Classes="success" Padding="12,6" />
                 </StackPanel>
-              </StackPanel>
-            </Border>
-            <Border Padding="16" Background="#313244" CornerRadius="10">
-              <StackPanel Spacing="10">
-                <TextBlock Text="Eviction priority" FontSize="14" FontWeight="Bold" Foreground="#CDD6F4" />
-                <TextBlock Text="Choose what unloads first when memory is tight." FontSize="12" Foreground="#A6ADC8" />
-                <Grid ColumnDefinitions="70,*,170,90" ColumnSpacing="12">
-                  <TextBlock Grid.Column="0" Text="Alias" FontSize="11" Foreground="#6C7086" />
-                  <TextBlock Grid.Column="1" Text="Model" FontSize="11" Foreground="#6C7086" />
-                  <TextBlock Grid.Column="2" Text="Priority" FontSize="11" Foreground="#6C7086" />
-                  <TextBlock Grid.Column="3" Text="Cost" FontSize="11" Foreground="#6C7086" />
-                </Grid>
-                <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                  <ItemsControl ItemsSource="{Binding EvictCosts}">
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,10,12">
+                  <ItemsControl ItemsSource="{Binding MatrixCombinations}">
                     <ItemsControl.ItemTemplate>
-                      <DataTemplate x:DataType="vm:EvictCostItem">
-                        <Grid ColumnDefinitions="70,*,170,90" ColumnSpacing="12" Margin="0,4">
-                          <TextBlock Grid.Column="0" Text="{Binding Key}" Foreground="#89B4FA" FontWeight="Bold" VerticalAlignment="Center" />
-                          <TextBlock Grid.Column="1" Text="{Binding ModelId}" Foreground="#CDD6F4" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                          <ComboBox Grid.Column="2" ItemsSource="{Binding PriorityOptions}" SelectedItem="{Binding Priority}" />
-                          <TextBox Grid.Column="3" Text="{Binding Value}" PlaceholderText="cost" />
-                        </Grid>
+                      <DataTemplate x:DataType="vm:MatrixCombinationItem">
+                        <Border Padding="16" Margin="0,0,0,12" Background="#313244" CornerRadius="8">
+                          <StackPanel Spacing="12">
+                            <Grid ColumnDefinitions="160,*,Auto" ColumnSpacing="10">
+                              <TextBlock Grid.Column="0" Text="Combination name" Foreground="#A6ADC8" VerticalAlignment="Center" />
+                              <TextBox Grid.Column="1" Text="{Binding Name}" PlaceholderText="coding_with_embeddings" LostFocus="OnMatrixVisualChanged" />
+                              <Button Grid.Column="2" Content="Remove" Command="{Binding RemoveCommand}" Click="OnMatrixVisualChanged" Classes="danger" Padding="10,5" />
+                            </Grid>
+                            <TextBlock Text="Models" FontSize="12" Foreground="#B4BEFE" FontWeight="Bold" />
+                            <ItemsControl ItemsSource="{Binding Models}">
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:MatrixModelSelectionItem">
+                                  <CheckBox IsChecked="{Binding IsSelected}" Margin="0,0,0,6" Click="OnMatrixVisualChanged">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                      <TextBlock Text="{Binding Alias}" Foreground="#89B4FA" FontWeight="Bold" />
+                                      <TextBlock Text="→" Foreground="#6C7086" />
+                                      <TextBlock Text="{Binding ModelId}" Foreground="#CDD6F4" />
+                                    </StackPanel>
+                                  </CheckBox>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                          </StackPanel>
+                        </Border>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
                 </ScrollViewer>
-              </StackPanel>
-            </Border>
-          </StackPanel>
+              </Grid>
+            </TabItem>
 
-          <!-- Scroll only combinations -->
-          <Border Grid.Row="1" Background="#1E1E2E" ClipToBounds="True">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,10,12">
-              <ItemsControl ItemsSource="{Binding MatrixCombinations}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate x:DataType="vm:MatrixCombinationItem">
-                    <Border Padding="16" Margin="0,0,0,12" Background="#313244" CornerRadius="8">
-                      <StackPanel Spacing="12">
-                        <Grid ColumnDefinitions="160,*,Auto" ColumnSpacing="10">
-                          <TextBlock Grid.Column="0" Text="Combination name" Foreground="#A6ADC8" VerticalAlignment="Center" />
-                          <TextBox Grid.Column="1" Text="{Binding Name}" PlaceholderText="coding_with_embeddings" LostFocus="OnMatrixVisualChanged" />
-                          <Button Grid.Column="2" Content="Remove" Command="{Binding RemoveCommand}" Click="OnMatrixVisualChanged" Classes="danger" Padding="10,5" />
-                        </Grid>
-                        <TextBlock Text="Models in this combination" FontSize="12" Foreground="#B4BEFE" FontWeight="Bold" />
-                        <ItemsControl ItemsSource="{Binding Models}">
-                          <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:MatrixModelSelectionItem">
-                              <CheckBox IsChecked="{Binding IsSelected}" Margin="0,0,0,6" Click="OnMatrixVisualChanged">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                  <TextBlock Text="{Binding Alias}" Foreground="#89B4FA" FontWeight="Bold" />
-                                  <TextBlock Text="→" Foreground="#6C7086" />
-                                  <TextBlock Text="{Binding ModelId}" Foreground="#CDD6F4" />
-                                </StackPanel>
-                              </CheckBox>
-                            </DataTemplate>
-                          </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                      </StackPanel>
-                    </Border>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </ScrollViewer>
-          </Border>
-
-          <!-- Fixed bottom advanced config -->
-          <Border Grid.Row="2" Padding="0,12,0,0" Background="#1E1E2E" BorderBrush="#313244" BorderThickness="0,1,0,0">
-            <Expander Header="Advanced matrix YAML" IsExpanded="False" HorizontalAlignment="Stretch">
-              <Border Padding="16" Background="#1E1E2E" BorderBrush="#313244" BorderThickness="1" CornerRadius="8" Margin="0,8,0,0">
-                <StackPanel Spacing="10">
-                  <TextBlock Text="Raw vars, sets, and evict costs." FontSize="11" Foreground="#6C7086" TextWrapping="Wrap" />
-                  <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="16">
-                    <StackPanel Grid.Row="0" Grid.Column="0" Spacing="6">
-                      <TextBlock Text="Vars" Foreground="#A6ADC8" />
-                      <TextBox Text="{Binding MatrixVarsText}" AcceptsReturn="True" Height="120" FontFamily="Consolas, monospace" TextWrapping="Wrap" />
-                    </StackPanel>
-                    <StackPanel Grid.Row="0" Grid.Column="1" Spacing="6">
-                      <TextBlock Text="Sets" Foreground="#A6ADC8" />
-                      <TextBox Text="{Binding MatrixSetsText}" AcceptsReturn="True" Height="120" FontFamily="Consolas, monospace" TextWrapping="Wrap" />
-                    </StackPanel>
-                    <StackPanel Grid.Row="1" Grid.Column="0" Spacing="6">
-                      <TextBlock Text="Evict costs" Foreground="#A6ADC8" />
-                      <TextBox Text="{Binding EvictCostsText}" AcceptsReturn="True" Height="90" FontFamily="Consolas, monospace" TextWrapping="Wrap" />
-                    </StackPanel>
-                  </Grid>
+            <TabItem Header="Eviction">
+              <Grid RowDefinitions="Auto,*" Margin="0,14,0,0">
+                <StackPanel Grid.Row="0" Spacing="6" Margin="0,0,0,12">
+                  <TextBlock Text="Eviction priority" FontSize="14" FontWeight="Bold" Foreground="#CDD6F4" />
+                  <TextBlock Text="Choose what unloads first when memory is tight." FontSize="12" Foreground="#A6ADC8" />
                 </StackPanel>
-              </Border>
-            </Expander>
-          </Border>
+                <Border Grid.Row="1" Padding="16" Background="#313244" CornerRadius="10">
+                  <Grid RowDefinitions="Auto,*">
+                    <Grid Grid.Row="0" ColumnDefinitions="80,*,190,110" ColumnSpacing="12" Margin="0,0,0,8">
+                      <TextBlock Grid.Column="0" Text="Alias" FontSize="11" Foreground="#6C7086" />
+                      <TextBlock Grid.Column="1" Text="Model" FontSize="11" Foreground="#6C7086" />
+                      <TextBlock Grid.Column="2" Text="Priority" FontSize="11" Foreground="#6C7086" />
+                      <TextBlock Grid.Column="3" Text="Cost" FontSize="11" Foreground="#6C7086" />
+                    </Grid>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                      <ItemsControl ItemsSource="{Binding EvictCosts}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="vm:EvictCostItem">
+                            <Grid ColumnDefinitions="80,*,190,110" ColumnSpacing="12" Margin="0,4">
+                              <TextBlock Grid.Column="0" Text="{Binding Key}" Foreground="#89B4FA" FontWeight="Bold" VerticalAlignment="Center" />
+                              <TextBlock Grid.Column="1" Text="{Binding ModelId}" Foreground="#CDD6F4" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                              <ComboBox Grid.Column="2" ItemsSource="{Binding PriorityOptions}" SelectedItem="{Binding Priority}" />
+                              <TextBox Grid.Column="3" Text="{Binding Value}" PlaceholderText="cost" />
+                            </Grid>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </ScrollViewer>
+                  </Grid>
+                </Border>
+              </Grid>
+            </TabItem>
+
+            <TabItem Header="Advanced YAML">
+              <ScrollViewer Margin="0,14,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <Border Padding="16" Background="#313244" CornerRadius="10">
+                  <StackPanel Spacing="10">
+                    <TextBlock Text="Raw vars, sets, and evict costs." FontSize="11" Foreground="#6C7086" />
+                    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="16">
+                      <StackPanel Grid.Row="0" Grid.Column="0" Spacing="6">
+                        <TextBlock Text="Vars" Foreground="#A6ADC8" />
+                        <TextBox Text="{Binding MatrixVarsText}" AcceptsReturn="True" Height="140" FontFamily="Consolas, monospace" TextWrapping="Wrap" />
+                      </StackPanel>
+                      <StackPanel Grid.Row="0" Grid.Column="1" Spacing="6">
+                        <TextBlock Text="Sets" Foreground="#A6ADC8" />
+                        <TextBox Text="{Binding MatrixSetsText}" AcceptsReturn="True" Height="140" FontFamily="Consolas, monospace" TextWrapping="Wrap" />
+                      </StackPanel>
+                      <StackPanel Grid.Row="1" Grid.Column="0" Spacing="6">
+                        <TextBlock Text="Evict costs" Foreground="#A6ADC8" />
+                        <TextBox Text="{Binding EvictCostsText}" AcceptsReturn="True" Height="110" FontFamily="Consolas, monospace" TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Grid>
+                  </StackPanel>
+                </Border>
+              </ScrollViewer>
+            </TabItem>
+          </TabControl>
         </Grid>
       </TabItem>
 
