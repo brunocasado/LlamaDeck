@@ -724,9 +724,12 @@ public partial class MainViewModel : ObservableObject
         // Matrix
         SyncMatrixTextFromCombinations();
         SyncEvictCostsWithCurrentVars();
-        SyncMatrixCollectionsFromText();
-        var vars = MatrixVars.Where(v => !string.IsNullOrWhiteSpace(v.Key) && !string.IsNullOrWhiteSpace(v.Value)).ToDictionary(v => v.Key.Trim(), v => v.Value.Trim());
-        var sets = MatrixSets.Where(s => !string.IsNullOrWhiteSpace(s.Key) && !string.IsNullOrWhiteSpace(s.Value)).ToDictionary(s => s.Key.Trim(), s => s.Value.Trim());
+        // Do not call SyncMatrixCollectionsFromText() here: it rebuilds EvictCosts
+        // from raw "alias = cost" lines, which do not contain ModelId, and that
+        // makes the visual Eviction tab lose model descriptions whenever the
+        // preview/save path runs after checking/unchecking combinations.
+        var vars = ParseKeyValueLines(MatrixVarsText).ToDictionary(v => v.Key.Trim(), v => v.Value.Trim());
+        var sets = ParseKeyValueLines(MatrixSetsText).ToDictionary(s => s.Key.Trim(), s => s.Value.Trim());
         var costs = EvictCosts.Where(c => !string.IsNullOrWhiteSpace(c.Key) && int.TryParse(c.Value, out _)).ToDictionary(c => c.Key.Trim(), c => int.TryParse(c.Value, out var v) ? v : 0);
         if (sets.Any())
         {
