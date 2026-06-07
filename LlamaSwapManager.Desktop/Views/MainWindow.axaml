@@ -382,8 +382,9 @@
 
       <!-- ===================== MATRIX TAB ===================== -->
       <TabItem Header="Matrix">
-        <ScrollViewer Padding="20" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel Spacing="16">
+        <Grid RowDefinitions="Auto,*,Auto" Margin="20">
+          <!-- Fixed header / actions -->
+          <StackPanel Grid.Row="0" Spacing="16" Margin="0,0,0,12">
             <TextBlock Text="Matrix Configuration" FontSize="16" FontWeight="Bold" Foreground="#CDD6F4" />
             <Border Padding="16" Background="#11111B" BorderBrush="#313244" BorderThickness="1" CornerRadius="10">
               <StackPanel Spacing="10">
@@ -397,39 +398,47 @@
                 </StackPanel>
               </StackPanel>
             </Border>
+          </StackPanel>
 
-            <ItemsControl ItemsSource="{Binding MatrixCombinations}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:MatrixCombinationItem">
-                  <Border Padding="16" Margin="0,0,0,12" Background="#313244" CornerRadius="8">
-                    <StackPanel Spacing="12">
-                      <Grid ColumnDefinitions="160,*,Auto" ColumnSpacing="10">
-                        <TextBlock Grid.Column="0" Text="Combination name" Foreground="#A6ADC8" VerticalAlignment="Center" />
-                        <TextBox Grid.Column="1" Text="{Binding Name}" PlaceholderText="coding_with_embeddings" LostFocus="OnMatrixVisualChanged" />
-                        <Button Grid.Column="2" Content="Remove" Command="{Binding RemoveCommand}" Click="OnMatrixVisualChanged" Classes="danger" Padding="10,5" />
-                      </Grid>
-                      <TextBlock Text="Models in this combination" FontSize="12" Foreground="#B4BEFE" FontWeight="Bold" />
-                      <ItemsControl ItemsSource="{Binding Models}">
-                        <ItemsControl.ItemTemplate>
-                          <DataTemplate x:DataType="vm:MatrixModelSelectionItem">
-                            <CheckBox IsChecked="{Binding IsSelected}" Margin="0,0,0,6" Click="OnMatrixVisualChanged">
-                              <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="{Binding Alias}" Foreground="#89B4FA" FontWeight="Bold" />
-                                <TextBlock Text="→" Foreground="#6C7086" />
-                                <TextBlock Text="{Binding ModelId}" Foreground="#CDD6F4" />
-                              </StackPanel>
-                            </CheckBox>
-                          </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                      </ItemsControl>
-                    </StackPanel>
-                  </Border>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
+          <!-- Scroll only combinations. This prevents the advanced config panel from being pushed out/overlapped. -->
+          <Border Grid.Row="1" Background="#1E1E2E" ClipToBounds="True">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,10,12">
+              <ItemsControl ItemsSource="{Binding MatrixCombinations}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:MatrixCombinationItem">
+                    <Border Padding="16" Margin="0,0,0,12" Background="#313244" CornerRadius="8">
+                      <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="160,*,Auto" ColumnSpacing="10">
+                          <TextBlock Grid.Column="0" Text="Combination name" Foreground="#A6ADC8" VerticalAlignment="Center" />
+                          <TextBox Grid.Column="1" Text="{Binding Name}" PlaceholderText="coding_with_embeddings" LostFocus="OnMatrixVisualChanged" />
+                          <Button Grid.Column="2" Content="Remove" Command="{Binding RemoveCommand}" Click="OnMatrixVisualChanged" Classes="danger" Padding="10,5" />
+                        </Grid>
+                        <TextBlock Text="Models in this combination" FontSize="12" Foreground="#B4BEFE" FontWeight="Bold" />
+                        <ItemsControl ItemsSource="{Binding Models}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:MatrixModelSelectionItem">
+                              <CheckBox IsChecked="{Binding IsSelected}" Margin="0,0,0,6" Click="OnMatrixVisualChanged">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                  <TextBlock Text="{Binding Alias}" Foreground="#89B4FA" FontWeight="Bold" />
+                                  <TextBlock Text="→" Foreground="#6C7086" />
+                                  <TextBlock Text="{Binding ModelId}" Foreground="#CDD6F4" />
+                                </StackPanel>
+                              </CheckBox>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Border>
 
-            <Expander Header="Generated low-level config (advanced)" IsExpanded="False">
-              <Border Padding="16" Background="#1E1E2E" BorderBrush="#313244" BorderThickness="1" CornerRadius="8">
+          <!-- Fixed bottom advanced low-level config. It no longer participates in the combinations scroll. -->
+          <Border Grid.Row="2" Padding="0,12,0,0" Background="#1E1E2E" BorderBrush="#313244" BorderThickness="0,1,0,0">
+            <Expander Header="Generated low-level config (advanced)" IsExpanded="False" HorizontalAlignment="Stretch">
+              <Border Padding="16" Background="#1E1E2E" BorderBrush="#313244" BorderThickness="1" CornerRadius="8" Margin="0,8,0,0">
                 <StackPanel Spacing="10">
                   <TextBlock Text="Only edit this if you know llama-swap matrix syntax. The visual builder above is the source of truth when saving." FontSize="11" Foreground="#6C7086" TextWrapping="Wrap" />
                   <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="16">
@@ -449,8 +458,8 @@
                 </StackPanel>
               </Border>
             </Expander>
-          </StackPanel>
-        </ScrollViewer>
+          </Border>
+        </Grid>
       </TabItem>
 
       <!-- ===================== CONFIG PREVIEW TAB ===================== -->
