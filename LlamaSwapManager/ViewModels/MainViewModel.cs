@@ -645,23 +645,29 @@ public partial class MainViewModel : ObservableObject
 
     private LlamaSwapConfig BuildConfigFromUI()
     {
-        var config = new LlamaSwapConfig();
+        // Start from the loaded config so fields not explicitly modeled by the UI
+        // (cmdStop, proxy, checkEndpoint, env, unlisted, filters, timeouts, hooks,
+        // peers, apiKeys, logToStdout, etc.) survive a visual edit/save cycle.
+        var config = _rawConfig ?? new LlamaSwapConfig();
+        var previousModels = _rawConfig?.Models;
 
         // Models
         config.Models = new Dictionary<string, ModelConfig>();
         foreach (var model in Models)
         {
-            var modelConfig = new ModelConfig
-            {
-                Cmd = model.BuildCmd(),
-                Name = model.Name,
-                Description = model.Description,
-                Ttl = string.IsNullOrEmpty(model.Ttl) || model.Ttl == "0" ? null : int.Parse(model.Ttl),
-                Aliases = string.IsNullOrEmpty(model.AliasesText)
-                    ? null
-                    : model.AliasesText.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                        .Select(a => a.Trim()).Where(a => !string.IsNullOrEmpty(a)).ToList()
-            };
+            var modelConfig = previousModels != null && previousModels.TryGetValue(model.ModelId, out var existing)
+                ? existing
+                : new ModelConfig();
+
+            modelConfig.Cmd = model.BuildCmd();
+            modelConfig.Name = string.IsNullOrWhiteSpace(model.Name) ? null : model.Name;
+            modelConfig.Description = string.IsNullOrWhiteSpace(model.Description) ? null : model.Description;
+            modelConfig.Ttl = string.IsNullOrEmpty(model.Ttl) || model.Ttl == "0" ? null : int.Parse(model.Ttl);
+            modelConfig.Aliases = string.IsNullOrEmpty(model.AliasesText)
+                ? null
+                : model.AliasesText.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(a => a.Trim()).Where(a => !string.IsNullOrEmpty(a)).ToList();
+
             config.Models[model.ModelId] = modelConfig;
         }
 
@@ -993,7 +999,7 @@ public partial class ModelEditItem : ObservableObject
             for (var i = 1; i < parts.Count; i++)
             {
                 var part = parts[i];
-                string? Next() => i + 1 < parts.Count ? parts[++i] : null;
+                string? Next() => i + 1 < parts.Count ? Unquote(parts[++i]) : null;
                 bool Match(params string[] names) => names.Contains(part);
 
                 if (Match("--jinja")) item.UseJinja = true;
@@ -1046,7 +1052,7 @@ public partial class ModelEditItem : ObservableObject
                 else if (Match("--reasoning", "-rea")) item.Reasoning = Next() ?? "";
                 else if (Match("--reasoning-format")) item.ReasoningFormat = Next() ?? "";
                 else if (Match("--reasoning-budget")) item.ReasoningBudget = Next() ?? "";
-                else extras.Add(QuoteIfNeeded(part));
+                else extras.Add(part);
             }
             item.ExtraArgs = string.Join(" ", extras);
         }
@@ -1126,7 +1132,12 @@ public partial class ModelEditItem : ObservableObject
         for (var i = 0; i < command.Length; i++)
         {
             var ch = command[i];
-            if (ch == '"') { inQuotes = !inQuotes; continue; }
+            if (ch == '"' && (i == 0 || command[i - 1] != '\\'))
+            {
+                inQuotes = !inQuotes;
+                current.Append(ch);
+                continue;
+            }
             if (char.IsWhiteSpace(ch) && !inQuotes)
             {
                 if (current.Length > 0) { result.Add(current.ToString()); current.Clear(); }
@@ -1135,6 +1146,13 @@ public partial class ModelEditItem : ObservableObject
         }
         if (current.Length > 0) result.Add(current.ToString());
         return result;
+    }
+
+    private static string Unquote(string value)
+    {
+        if (value.Length >= 2 && value.StartsWith("\"") && value.EndsWith("\""))
+            return value[1..^1].Replace("\\\"", "\"");
+        return value;
     }
 
     private static string QuoteIfNeeded(string value)

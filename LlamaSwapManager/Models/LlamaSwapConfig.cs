@@ -175,7 +175,7 @@ public class MatrixConfig
     [YamlMember(Alias = "vars")]
     public Dictionary<string, string>? Vars { get; set; } = new();
 
-    [YamlMember(Alias = "evict_costs")]
+    [YamlMember(Alias = "evict_costs", ApplyNamingConventions = false)]
     public Dictionary<string, int>? EvictCosts { get; set; } = new();
 
     [YamlMember(Alias = "sets")]
@@ -184,7 +184,7 @@ public class MatrixConfig
 
 public class HooksConfig
 {
-    [YamlMember(Alias = "on_startup")]
+    [YamlMember(Alias = "on_startup", ApplyNamingConventions = false)]
     public StartupHooks? OnStartup { get; set; }
 }
 
