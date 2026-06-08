@@ -162,56 +162,88 @@ public partial class App : Application
     }
 
     // ── macOS Dock Icon (nativa) ───────────────────────────────────
-    [DllImport("/System/Library/Frameworks/AppKit.framework/AppKit")]
+    [DllImport("/usr/lib/libobjc.dylib")]
     private static extern IntPtr objc_msgSend(IntPtr receiver, IntPtr selector);
 
-    [DllImport("/System/Library/Frameworks/AppKit.framework/AppKit")]
+    [DllImport("/usr/lib/libobjc.dylib")]
     private static extern IntPtr objc_msgSend_IntPtr(IntPtr receiver, IntPtr selector, IntPtr arg);
 
-    [DllImport("/System/Library/Frameworks/Foundation.framework/Foundation")]
+    [DllImport("/usr/lib/libobjc.dylib")]
+    private static extern IntPtr objc_msgSend_str(IntPtr receiver, IntPtr selector, string arg);
+
+    [DllImport("/usr/lib/libobjc.dylib")]
     private static extern IntPtr sel_registerName(string name);
 
-    [DllImport("/System/Library/Frameworks/Foundation.framework/Foundation")]
+    [DllImport("/usr/lib/libobjc.dylib")]
     private static extern IntPtr objc_getClass(string name);
-
-    [DllImport("/System/Library/Frameworks/Foundation.framework/Foundation")]
-    private static extern IntPtr objc_msgSend_NSString(IntPtr receiver, IntPtr selector, IntPtr nsString);
-
-    [DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
-    private static extern IntPtr CFStringCreateWithCString(IntPtr allocator, string cString, int encoding);
 
     private static void SetMacOsDockIcon()
     {
-        // Load the PNG from the Assets folder relative to the executable
-        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-        var pngPath = Path.Combine(baseDir, "Assets", "llama.png");
-        if (!File.Exists(pngPath))
+        // O PNG está empacotado como recurso; carrega via AssetLoader primeiro,
+        // e como fallback tenta o caminho do filesystem.
+        byte[]? pngBytes = null;
+        try
         {
-            // Fallback: try project root (for dotnet run)
-            pngPath = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "Assets", "llama.png"));
-            if (!File.Exists(pngPath)) return;
+            var uri = new Uri("avares://LlamaSwapManager.Desktop/Assets/llama.png");
+            using var stream = AssetLoader.Open(uri);
+            using var ms = new MemoryStream();
+            stream.CopyTo(ms);
+            pngBytes = ms.ToArray();
+        }
+        catch { /* fallback */ }
+
+        if (pngBytes == null || pngBytes.Length == 0)
+        {
+            // Tenta o filesystem (via dotnet run ou build)
+            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            var candidates = new[]
+            {
+                Path.Combine(baseDir, "Assets", "llama.png"),
+                Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "Assets", "llama.png")),
+            };
+            foreach (var p in candidates)
+            {
+                if (File.Exists(p))
+                {
+                    pngBytes = File.ReadAllBytes(p);
+                    break;
+                }
+            }
         }
 
-        // NSApplication *app = [NSApplication sharedApplication];
-        var nsAppClass = objc_getClass("NSApplication");
-        var selSharedApp = sel_registerName("sharedApplication");
-        var app = objc_msgSend(nsAppClass, selSharedApp);
+        if (pngBytes == null || pngBytes.Length == 0) return;
 
-        // NSString *path = [NSString stringWithUTF8String:pngPath];
-        var nsString = CFStringCreateWithCString(IntPtr.Zero, pngPath, 0x08000100); // kCFStringEncodingUTF8
-
-        // NSImage *img = [[NSImage alloc] initWithContentsOfFile:path];
-        var nsImageClass = objc_getClass("NSImage");
-        var selAlloc = sel_registerName("alloc");
-        var img = objc_msgSend(nsImageClass, selAlloc);
-        var selInitWithFile = sel_registerName("initWithContentsOfFile:");
-        img = objc_msgSend_IntPtr(img, selInitWithFile, nsString);
-
-        if (img != IntPtr.Zero)
+        // NSData *data = [NSData dataWithBytes:pngBytes length:len];
+        // Pin the managed array so the GC doesn't move it during the native call.
+        var gcHandle = GCHandle.Alloc(pngBytes, GCHandleType.Pinned);
+        try
         {
+            var ptr = gcHandle.AddrOfPinnedObject();
+            var nsDataClass = objc_getClass("NSData");
+            var selDataWithBytes = sel_registerName("dataWithBytes:length:");
+            var data = objc_msgSend_IntPtr_Int(nsDataClass, selDataWithBytes, ptr, pngBytes.Length);
+
+            // NSImage *img = [[NSImage alloc] initWithData:data];
+            var nsImageClass = objc_getClass("NSImage");
+            var selAlloc = sel_registerName("alloc");
+            var img = objc_msgSend(nsImageClass, selAlloc);
+            var selInitWithData = sel_registerName("initWithData:");
+            img = objc_msgSend_IntPtr(img, selInitWithData, data);
+
+            if (img == IntPtr.Zero) return;
+
+            // NSApplication *app = [NSApplication sharedApplication];
+            var app = objc_msgSend(objc_getClass("NSApplication"), sel_registerName("sharedApplication"));
+
             // [app setApplicationIconImage:img];
-            var selSetIcon = sel_registerName("setApplicationIconImage:");
-            objc_msgSend_IntPtr(app, selSetIcon, img);
+            objc_msgSend_IntPtr(app, sel_registerName("setApplicationIconImage:"), img);
+        }
+        finally
+        {
+            gcHandle.Free();
         }
     }
+
+    [DllImport("/usr/lib/libobjc.dylib")]
+    private static extern IntPtr objc_msgSend_IntPtr_Int(IntPtr receiver, IntPtr selector, IntPtr bytes, int len);
 }
