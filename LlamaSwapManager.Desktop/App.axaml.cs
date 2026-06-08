@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -29,6 +31,15 @@ public partial class App : Application
             var vm = new MainViewModel();
             var mainWindow = new MainWindow { DataContext = vm };
             desktop.MainWindow = mainWindow;
+
+            if (OperatingSystem.IsMacOS())
+            {
+                try
+                {
+                    SetMacOsDockIcon();
+                }
+                catch { /* fallback */ }
+            }
 
             SetupTrayIcon(mainWindow, vm);
 
@@ -148,5 +159,59 @@ public partial class App : Application
 
         _startMenuItem.IsEnabled = isStopped;
         _stopMenuItem.IsEnabled = isRunning;
+    }
+
+    // ── macOS Dock Icon (nativa) ───────────────────────────────────
+    [DllImport("/System/Library/Frameworks/AppKit.framework/AppKit")]
+    private static extern IntPtr objc_msgSend(IntPtr receiver, IntPtr selector);
+
+    [DllImport("/System/Library/Frameworks/AppKit.framework/AppKit")]
+    private static extern IntPtr objc_msgSend_IntPtr(IntPtr receiver, IntPtr selector, IntPtr arg);
+
+    [DllImport("/System/Library/Frameworks/Foundation.framework/Foundation")]
+    private static extern IntPtr sel_registerName(string name);
+
+    [DllImport("/System/Library/Frameworks/Foundation.framework/Foundation")]
+    private static extern IntPtr objc_getClass(string name);
+
+    [DllImport("/System/Library/Frameworks/Foundation.framework/Foundation")]
+    private static extern IntPtr objc_msgSend_NSString(IntPtr receiver, IntPtr selector, IntPtr nsString);
+
+    [DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
+    private static extern IntPtr CFStringCreateWithCString(IntPtr allocator, string cString, int encoding);
+
+    private static void SetMacOsDockIcon()
+    {
+        // Load the PNG from the Assets folder relative to the executable
+        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        var pngPath = Path.Combine(baseDir, "Assets", "llama.png");
+        if (!File.Exists(pngPath))
+        {
+            // Fallback: try project root (for dotnet run)
+            pngPath = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "Assets", "llama.png"));
+            if (!File.Exists(pngPath)) return;
+        }
+
+        // NSApplication *app = [NSApplication sharedApplication];
+        var nsAppClass = objc_getClass("NSApplication");
+        var selSharedApp = sel_registerName("sharedApplication");
+        var app = objc_msgSend(nsAppClass, selSharedApp);
+
+        // NSString *path = [NSString stringWithUTF8String:pngPath];
+        var nsString = CFStringCreateWithCString(IntPtr.Zero, pngPath, 0x08000100); // kCFStringEncodingUTF8
+
+        // NSImage *img = [[NSImage alloc] initWithContentsOfFile:path];
+        var nsImageClass = objc_getClass("NSImage");
+        var selAlloc = sel_registerName("alloc");
+        var img = objc_msgSend(nsImageClass, selAlloc);
+        var selInitWithFile = sel_registerName("initWithContentsOfFile:");
+        img = objc_msgSend_IntPtr(img, selInitWithFile, nsString);
+
+        if (img != IntPtr.Zero)
+        {
+            // [app setApplicationIconImage:img];
+            var selSetIcon = sel_registerName("setApplicationIconImage:");
+            objc_msgSend_IntPtr(app, selSetIcon, img);
+        }
     }
 }
