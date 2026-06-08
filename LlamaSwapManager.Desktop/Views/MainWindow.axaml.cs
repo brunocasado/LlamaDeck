@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using LlamaSwapManager.ViewModels;
@@ -19,7 +20,16 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         AddHandler(KeyDownEvent, OnWindowKeyDownTunnel, RoutingStrategies.Tunnel, handledEventsToo: true);
-        
+
+        // Set window icon
+        try
+        {
+            var uri = new Uri("avares://LlamaSwapManager.Desktop/Assets/llama.png");
+            using var stream = AssetLoader.Open(uri);
+            Icon = new WindowIcon(stream);
+        }
+        catch { /* fallback */ }
+
         // Intercept window closing to hide instead of exit (Tray behavior)
         Closing += OnWindowClosing;
     }
