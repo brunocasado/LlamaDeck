@@ -21,17 +21,25 @@ public partial class MainWindow : Window
         InitializeComponent();
         AddHandler(KeyDownEvent, OnWindowKeyDownTunnel, RoutingStrategies.Tunnel, handledEventsToo: true);
 
-        // Set window icon
+        // O ícone da janela precisa ser setado APÓS a janela nativa existir
+        // para que o backend Avalonia.Native do macOS chame
+        // [NSApp setApplicationIconImage:] corretamente.
+        Opened += (_, _) => SetWindowIcon();
+
+        // Intercept window closing to hide instead of exit (Tray behavior)
+        Closing += OnWindowClosing;
+    }
+
+    private void SetWindowIcon()
+    {
         try
         {
             var uri = new Uri("avares://LlamaSwapManager.Desktop/Assets/llama.png");
             using var stream = AssetLoader.Open(uri);
-            Icon = new WindowIcon(stream);
+            var icon = new WindowIcon(stream);
+            Icon = icon;
         }
         catch { /* fallback */ }
-
-        // Intercept window closing to hide instead of exit (Tray behavior)
-        Closing += OnWindowClosing;
     }
 
     private void OnWindowClosing(object? sender, WindowClosingEventArgs e)
