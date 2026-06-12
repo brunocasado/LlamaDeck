@@ -10,7 +10,8 @@
         Height="800"
         MinWidth="1000"
         MinHeight="650"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        Loaded="OnLoaded">
 
   <Design.DataContext>
     <vm:MainViewModel />
@@ -53,6 +54,9 @@
                   IsEnabled="{Binding RestartButtonEnabled}" />
           <Button Content="Refresh"
                   Command="{Binding RefreshCommand}"
+                  Padding="10,4" />
+          <Button Content="Metrics"
+                  Command="{Binding NavigateToMetricsCommand}"
                   Padding="10,4" />
         </StackPanel>
       </DockPanel>
@@ -548,24 +552,117 @@
         </ScrollViewer>
       </TabItem>
 
-      <!-- ===================== LOGS TAB ===================== -->
-      <TabItem Header="Logs">
-        <Grid Margin="20" RowDefinitions="Auto,*">
-          <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right" Margin="0,0,0,12">
-            <TextBlock Text="Runtime logs" FontSize="11" Foreground="#6C7086" VerticalAlignment="Center" />
-            <Button Content="Clear" Command="{Binding ClearLogCommand}" Padding="10,4" />
-          </StackPanel>
-          <TabControl Grid.Row="1">
-            <TabItem Header="All">
-              <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"><TextBox IsReadOnly="True" TextWrapping="NoWrap" FontFamily="Consolas, monospace" FontSize="11" Foreground="#CDD6F4" AcceptsReturn="True" Text="{Binding LogText}" /></ScrollViewer>
-            </TabItem>
-            <TabItem Header="llama-swap">
-              <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"><TextBox IsReadOnly="True" TextWrapping="NoWrap" FontFamily="Consolas, monospace" FontSize="11" Foreground="#CDD6F4" AcceptsReturn="True" Text="{Binding LlamaSwapLogText}" /></ScrollViewer>
-            </TabItem>
-            <TabItem Header="model / llama-server">
-              <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"><TextBox IsReadOnly="True" TextWrapping="NoWrap" FontFamily="Consolas, monospace" FontSize="11" Foreground="#CDD6F4" AcceptsReturn="True" Text="{Binding ModelLogText}" /></ScrollViewer>
-            </TabItem>
-          </TabControl>
+      <!-- ===================== METRICS TAB ===================== -->
+      <TabItem Header="Metrics">
+        <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="20">
+          <!-- Header -->
+          <Border Grid.Row="0" Padding="16" Background="#313244" CornerRadius="8" Margin="0,0,0,16">
+            <StackPanel Spacing="6">
+              <TextBlock Text="llama-server Metrics" FontSize="16" FontWeight="Bold" Foreground="#CDD6F4" />
+              <TextBlock Text="{Binding StatusText}" FontSize="12" Foreground="#A6ADC8" />
+            </StackPanel>
+          </Border>
+
+          <!-- Stats cards -->
+          <Grid Grid.Row="1" ColumnDefinitions="*,*,*,*" RowDefinitions="Auto" ColumnSpacing="16" Margin="0,0,0,16">
+            <Border Grid.Row="0" Grid.Column="0" Padding="20" Background="#313244" CornerRadius="8">
+              <StackPanel Spacing="4" HorizontalAlignment="Center">
+                <TextBlock Text="Prefill Tokens" FontSize="11" Foreground="#6C7086" HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding PrefillTokens}" FontSize="28" FontWeight="Bold" Foreground="#89B4FA" HorizontalAlignment="Center" />
+                <TextBlock Text="Total" FontSize="11" Foreground="#A6ADC8" HorizontalAlignment="Center" />
+              </StackPanel>
+            </Border>
+            <Border Grid.Row="0" Grid.Column="1" Padding="20" Background="#313244" CornerRadius="8">
+              <StackPanel Spacing="4" HorizontalAlignment="Center">
+                <TextBlock Text="Decode Tokens" FontSize="11" Foreground="#6C7086" HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding DecodeTokens}" FontSize="28" FontWeight="Bold" Foreground="#A6E3A1" HorizontalAlignment="Center" />
+                <TextBlock Text="Total" FontSize="11" Foreground="#A6ADC8" HorizontalAlignment="Center" />
+              </StackPanel>
+            </Border>
+            <Border Grid.Row="0" Grid.Column="2" Padding="20" Background="#313244" CornerRadius="8">
+              <StackPanel Spacing="4" HorizontalAlignment="Center">
+                <TextBlock Text="Tokens/sec" FontSize="11" Foreground="#6C7086" HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding TokensPerSecond, StringFormat={}{0:F1}}" FontSize="28" FontWeight="Bold" Foreground="#FAB387" HorizontalAlignment="Center" />
+                <TextBlock Text="Avg" FontSize="11" Foreground="#A6ADC8" HorizontalAlignment="Center" />
+              </StackPanel>
+            </Border>
+            <Border Grid.Row="0" Grid.Column="3" Padding="20" Background="#313244" CornerRadius="8">
+              <StackPanel Spacing="4" HorizontalAlignment="Center">
+                <TextBlock Text="Active Slots" FontSize="11" Foreground="#6C7086" HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding ActiveSlots}" FontSize="28" FontWeight="Bold" Foreground="#F5C2E7" HorizontalAlignment="Center" />
+                <TextBlock Text="Running" FontSize="11" Foreground="#A6ADC8" HorizontalAlignment="Center" />
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <!-- Log filter + logs -->
+          <Grid Grid.Row="2" RowDefinitions="Auto,*">
+          <!-- Filter bars -->
+          <Grid Grid.Row="0" ColumnDefinitions="*,*" ColumnSpacing="16">
+          <!-- Upstream filter -->
+          <Border Grid.Column="0" Padding="10,6" Background="#1E1E2E" CornerRadius="8" Margin="0,0,0,8">
+          <Grid ColumnDefinitions="24,*,Auto" ColumnSpacing="8">
+            <TextBlock Grid.Column="0" Text="🔍" VerticalAlignment="Center" Foreground="#6C7086" FontSize="12" />
+            <TextBox Grid.Column="1" Text="{Binding UpstreamLogFilterText, UpdateSourceTrigger=PropertyChanged}"
+                     PlaceholderText="Filter upstream logs (regex)"
+                     Foreground="#CDD6F4" Background="#313244" BorderBrush="#45475A" FontSize="11" />
+            <Button Grid.Column="2" Content="✕" Command="{Binding ClearLogCommand}" Padding="6,2" FontSize="10" Foreground="#6C7086" />
+          </Grid>
+          </Border>
+          <!-- Proxy filter -->
+          <Border Grid.Column="1" Padding="10,6" Background="#1E1E2E" CornerRadius="8" Margin="0,0,0,8">
+          <Grid ColumnDefinitions="24,*,Auto" ColumnSpacing="8">
+            <TextBlock Grid.Column="0" Text="🔍" VerticalAlignment="Center" Foreground="#6C7086" FontSize="12" />
+            <TextBox Grid.Column="1" Text="{Binding ProxyLogFilterText, UpdateSourceTrigger=PropertyChanged}"
+                     PlaceholderText="Filter proxy logs (regex)"
+                     Foreground="#CDD6F4" Background="#313244" BorderBrush="#45475A" FontSize="11" />
+            <Button Grid.Column="2" Content="✕" Command="{Binding ClearLogCommand}" Padding="6,2" FontSize="10" Foreground="#6C7086" />
+          </Grid>
+          </Border>
+          </Grid>
+
+          <!-- Log windows (side by side) -->
+          <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="16">
+          <!-- Upstream Logs -->
+          <Border Grid.Column="0" Padding="12" Background="#313244" CornerRadius="8">
+          <Grid RowDefinitions="Auto,*">
+            <TextBlock Grid.Row="0" Text="Upstream Logs" FontSize="12" FontWeight="Bold" Foreground="#A6E3A1" Margin="0,0,0,6" />
+            <ScrollViewer Grid.Row="1" x:Name="UpstreamLogScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+              <TextBox x:Name="UpstreamLogTextBox"
+                       Text="{Binding UpstreamLogText}"
+                       Background="#1E1E2E"
+                       Foreground="#CDD6F4"
+                       IsReadOnly="True"
+                       TextWrapping="NoWrap"
+                       FontFamily="Consolas, monospace"
+                       FontSize="11" />
+            </ScrollViewer>
+          </Grid>
+          </Border>
+
+          <!-- Proxy Logs -->
+          <Border Grid.Column="1" Padding="12" Background="#313244" CornerRadius="8">
+          <Grid RowDefinitions="Auto,*">
+            <TextBlock Grid.Row="0" Text="Proxy Logs" FontSize="12" FontWeight="Bold" Foreground="#FAB387" Margin="0,0,0,6" />
+            <ScrollViewer Grid.Row="1" x:Name="ProxyLogScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+              <TextBox x:Name="ProxyLogTextBox"
+                       Text="{Binding LlamaSwapLogText}"
+                       Background="#1E1E2E"
+                       Foreground="#CDD6F4"
+                       IsReadOnly="True"
+                       TextWrapping="NoWrap"
+                       FontFamily="Consolas, monospace"
+                       FontSize="11" />
+            </ScrollViewer>
+          </Grid>
+          </Border>
+          </Grid>
+          </Grid>
+
+            <!-- Footer -->
+          <Border Grid.Row="3" Padding="12,8" Background="#1E1E2E" BorderBrush="#313244" BorderThickness="0,1,0,0" Margin="0,16,0,0">
+            <TextBlock Text="Logs update in real-time. Upstream logs from llama-server via streaming API." FontSize="10" Foreground="#6C7086" />
+          </Border>
         </Grid>
       </TabItem>
 

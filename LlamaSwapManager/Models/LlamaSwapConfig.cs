@@ -20,6 +20,9 @@ public class LlamaSwapConfig
     [YamlMember(Alias = "logToStdout")]
     public string? LogToStdout { get; set; } = "proxy";
 
+    [YamlMember(Alias = "logFile")]
+    public string? LogFile { get; set; }
+
     [YamlMember(Alias = "metricsMaxInMemory")]
     public int? MetricsMaxInMemory { get; set; }
 
@@ -114,6 +117,12 @@ public class ModelConfig
 
     [YamlMember(Alias = "useModelName")]
     public string? UseModelName { get; set; }
+
+    [YamlMember(Alias = "metrics")]
+    public bool? Metrics { get; set; }
+
+    [YamlMember(Alias = "slots")]
+    public bool? Slots { get; set; }
 
     [YamlMember(Alias = "aliases")]
     public List<string>? Aliases { get; set; }

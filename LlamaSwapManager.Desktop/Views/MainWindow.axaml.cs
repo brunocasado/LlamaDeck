@@ -658,4 +658,61 @@ public partial class MainWindow : Window
         await dialog.ShowDialog(this);
         return result;
     }
+
+   // --- Auto-scroll for log viewers (smart: only when at bottom) ---
+    private bool _upstreamAutoScroll = true;
+    private bool _proxyAutoScroll = true;
+    private double _lastUpstreamOffset = 0;
+    private double _lastProxyOffset = 0;
+
+    private void OnLoaded(object? sender, RoutedEventArgs e)
+    {
+        if (UpstreamLogScrollViewer != null)
+            UpstreamLogScrollViewer.ScrollChanged += OnUpstreamScrollChanged;
+
+        if (ProxyLogScrollViewer != null)
+            ProxyLogScrollViewer.ScrollChanged += OnProxyScrollChanged;
+    }
+
+    private void OnUpstreamScrollChanged(object? sender, RoutedEventArgs e)
+    {
+        var scroll = (ScrollViewer)sender!;
+        // If user scrolled down (offset increased), enable auto-scroll
+        if (scroll.Offset.Y > _lastUpstreamOffset)
+        {
+            _upstreamAutoScroll = true;
+        }
+        // If user scrolled up (offset decreased), disable auto-scroll
+        else if (scroll.Offset.Y < _lastUpstreamOffset - 5.0)
+        {
+            _upstreamAutoScroll = false;
+        }
+
+        _lastUpstreamOffset = scroll.Offset.Y;
+
+        if (_upstreamAutoScroll)
+        {
+            scroll.Offset = new Avalonia.Vector(scroll.Offset.X, double.MaxValue);
+        }
+    }
+
+    private void OnProxyScrollChanged(object? sender, RoutedEventArgs e)
+    {
+        var scroll = (ScrollViewer)sender!;
+        if (scroll.Offset.Y > _lastProxyOffset)
+        {
+            _proxyAutoScroll = true;
+        }
+        else if (scroll.Offset.Y < _lastProxyOffset - 5.0)
+        {
+            _proxyAutoScroll = false;
+        }
+
+        _lastProxyOffset = scroll.Offset.Y;
+
+        if (_proxyAutoScroll)
+        {
+            scroll.Offset = new Avalonia.Vector(scroll.Offset.X, double.MaxValue);
+        }
+    }
 }

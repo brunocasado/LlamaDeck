@@ -35,6 +35,7 @@ public class LlamaSwapProcessManager : IDisposable
     public string? ExecutablePath { get; private set; }
     public string? ConfigPath { get; private set; }
     public string? ApiBaseUrl { get; private set; }
+    public string? LlamaServerBaseUrl { get; private set; }
     public string? LlamaSwapExePath => ExecutablePath;
     public string? DetectedApiBaseUrl => ApiBaseUrl;
     public string AppDirectory { get; }
@@ -63,6 +64,14 @@ public class LlamaSwapProcessManager : IDisposable
 
     public void RefreshPaths() => ResolvePaths();
     public void DetectApiUrl() => ApiBaseUrl = DetectApiBaseUrl();
+    public void DetectLlamaServerUrl() => LlamaServerBaseUrl = DetectLlamaServerBaseUrl();
+
+    /// <summary>
+    /// Public alias for dynamic re-detection. Call this from the metrics polling loop
+    /// so that when llama-swap switches models (and thus the upstream llama-server port),
+    /// the manager picks up the new port automatically.
+    /// </summary>
+    public void RefreshLlamaServerUrl() => LlamaServerBaseUrl = DetectLlamaServerBaseUrl();
 
     private string? ResolveExecutable()
     {
@@ -520,6 +529,11 @@ public class LlamaSwapProcessManager : IDisposable
 
     private string? DetectApiBaseUrl()
     {
+        // llama-swap default port — just test it directly
+        if (TestEndpoint("http://127.0.0.1:8080"))
+            return "http://127.0.0.1:8080";
+
+        // Fallback: try to find llama-swap process and detect port
         var swapProcesses = Process.GetProcessesByName("llama-swap");
         foreach (var swap in swapProcesses)
         {
@@ -536,8 +550,57 @@ public class LlamaSwapProcessManager : IDisposable
             catch { }
         }
 
-        if (TestEndpoint("http://127.0.0.1:8080"))
-            return "http://127.0.0.1:8080";
+        return null;
+    }
+
+    /// <summary>
+    /// Detects the upstream llama-server URL by querying llama-swap's /running endpoint.
+    /// The /running response includes a "proxy" field with the llama-server address.
+    /// Falls back to port scanning if llama-swap is unreachable or no model is loaded.
+    /// </summary>
+    private string? DetectLlamaServerBaseUrl()
+    {
+        // Primary: query llama-swap /running for the upstream proxy URL
+        var swapBaseUrl = DetectApiBaseUrl();
+        if (swapBaseUrl is not null)
+        {
+            try
+            {
+                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+                var response = http.GetAsync($"{swapBaseUrl}/running").Result;
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = response.Content.ReadAsStringAsync().Result;
+                    // Extract "proxy" from the first running entry:
+                    // {"running":[{"model":"...","proxy":"http://localhost:5801",...}]}
+                    var proxyMatch = System.Text.RegularExpressions.Regex.Match(
+                        json,
+                        "\"proxy\"\\s*:\\s*\"([^\"]+)\"");
+                    if (proxyMatch.Success)
+                    {
+                        var proxyUrl = proxyMatch.Groups[1].Value;
+                        // Normalize: llama-swap returns "localhost", ensure we use 127.0.0.1
+                        proxyUrl = proxyUrl.Replace("localhost", "127.0.0.1");
+                        return proxyUrl;
+                    }
+                }
+            }
+            catch { }
+        }
+
+        // Fallback: port scan 5800-5900 for llama-server /health
+        for (var port = 5800; port <= 5900; port++)
+        {
+            var baseUrl = $"http://127.0.0.1:{port}";
+            try
+            {
+                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(1) };
+                var response = http.GetAsync($"{baseUrl}/health").Result;
+                if (response.IsSuccessStatusCode)
+                    return baseUrl;
+            }
+            catch { }
+        }
 
         return null;
     }
@@ -571,6 +634,8 @@ public class LlamaSwapProcessManager : IDisposable
             }
             else
             {
+                // CRITICAL: lsof -p on macOS returns ALL system ports, not just for the process.
+                // We must filter by the COMMAND column matching the target process name.
                 var psi = new ProcessStartInfo
                 {
                     FileName = "lsof",
@@ -585,15 +650,21 @@ public class LlamaSwapProcessManager : IDisposable
                 {
                     foreach (var line in output.Split('\n'))
                     {
+                        // Only accept lines that start with the target process name
                         var parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                        foreach (var part in parts)
+                        if (parts.Length < 1) continue;
+                        var cmd = parts[0];
+                        // Filter: only lines where COMMAND matches the target process
+                        if (cmd != "llama-swap" && cmd != "llama-server" && cmd != "LlamaSwapManager.Desktop")
+                            continue;
+
+                        // Now extract port from the NAME column (last field)
+                        var namePart = parts[^1];
+                        if ((namePart.StartsWith("*:") || namePart.StartsWith("127.0.0.1:")) && namePart.Contains(':'))
                         {
-                            if (part.StartsWith("*:") || part.StartsWith("127.0.0.1:"))
-                            {
-                                var portStr = part.Split(':')[^1];
-                                if (int.TryParse(portStr, out var port))
-                                    ports.Add(port);
-                            }
+                            var portStr = namePart.Split(':')[^1];
+                            if (int.TryParse(portStr, out var port))
+                                ports.Add(port);
                         }
                     }
                 }

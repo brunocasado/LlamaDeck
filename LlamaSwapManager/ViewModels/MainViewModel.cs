@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -53,10 +54,10 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<string> _logMessages = new();
     [ObservableProperty] private string _logText = "";
     [ObservableProperty] private string _llamaSwapLogText = "";
-    [ObservableProperty] private string _modelLogText = "";
+    [ObservableProperty] private string _upstreamLogText = "";
     private readonly StringBuilder _globalLogBuffer = new();
     private readonly StringBuilder _swapLogBuffer = new();
-    private readonly StringBuilder _modelLogBuffer = new();
+    private readonly StringBuilder _upstreamLogBuffer = new();
 
     // Models
     [ObservableProperty] private ObservableCollection<ModelEditItem> _models = new();
@@ -80,6 +81,25 @@ public partial class MainViewModel : ObservableObject
 
     // Config preview
     [ObservableProperty] private string _configPreview = "";
+
+    // Metrics navigation
+    [ObservableProperty] private string _currentView = "models";
+    [ObservableProperty] private long _prefillTokens;
+    [ObservableProperty] private long _decodeTokens;
+    [ObservableProperty] private double _tokensPerSecond;
+    [ObservableProperty] private int _activeSlots;
+
+    // Log filtering (per-window regex)
+    [ObservableProperty] private string _upstreamLogFilterText = "";
+    [ObservableProperty] private string _proxyLogFilterText = "";
+
+    private MetricsService? _metricsService;
+    private CancellationTokenSource? _metricsCts;
+    private LogStreamService? _logStreamService;
+    private CancellationTokenSource? _logStreamCts;
+    private string? _currentStreamingModelId;
+
+    public enum AppView { Models, Matrix, Logs, Metrics }
 
 
     public IReadOnlyList<string> AutoOnOffOptions { get; } = new[] { "", "auto", "on", "off" };
@@ -115,6 +135,10 @@ public partial class MainViewModel : ObservableObject
     public ICommand CreateAllModelsMatrixSetCommand { get; }
     public ICommand AddMatrixCombinationCommand { get; }
     public ICommand ClearLogCommand { get; }
+    public ICommand NavigateToMetricsCommand { get; }
+    public ICommand NavigateToModelsCommand { get; }
+    public ICommand NavigateToMatrixCommand { get; }
+    public ICommand NavigateToLogsCommand { get; }
 
     // CanExecute
     public bool CanStart => StartButtonEnabled;
@@ -154,15 +178,22 @@ public partial class MainViewModel : ObservableObject
         CreateAllModelsMatrixSetCommand = new RelayCommand(ExecuteCreateAllModelsMatrixSet);
         AddMatrixCombinationCommand = new RelayCommand(ExecuteAddMatrixCombination);
         ClearLogCommand = new RelayCommand(() =>
-          {
-              LogMessages.Clear();
-              LogText = "";
-              LlamaSwapLogText = "";
-              ModelLogText = "";
-              _globalLogBuffer.Clear();
-              _swapLogBuffer.Clear();
-              _modelLogBuffer.Clear();
-          });
+                 {
+                     LogMessages.Clear();
+                      LogText = "";
+                      LlamaSwapLogText = "";
+                      UpstreamLogText = "";
+                      _globalLogBuffer.Clear();
+                      _swapLogBuffer.Clear();
+                      _upstreamLogBuffer.Clear();
+                      _logStreamService?.ClearLogs();
+                      UpstreamLogFilterText = "";
+                      ProxyLogFilterText = "";
+                     });
+        NavigateToMetricsCommand = new RelayCommand(() => CurrentView = "metrics");
+        NavigateToModelsCommand = new RelayCommand(() => CurrentView = "models");
+        NavigateToMatrixCommand = new RelayCommand(() => CurrentView = "matrix");
+        NavigateToLogsCommand = new RelayCommand(() => CurrentView = "logs");
 
         // Auto-detect paths first
         AutoDetectPaths();
@@ -301,21 +332,29 @@ public partial class MainViewModel : ObservableObject
         }
 
         _globalLogBuffer.AppendLine(message);
-        LogText = _globalLogBuffer.ToString();
         LogMessages.Add(message);
 
-        var lower = message.ToLowerInvariant();
-        var isModel = lower.Contains("llama-server") || lower.Contains("slot") || lower.Contains("model") || lower.Contains("ctx") || lower.Contains("prompt") || lower.Contains("eval");
-        if (isModel)
+        // Throttle LogText updates to every 10 messages to reduce UI churn
+        if (LogMessages.Count % 10 == 0)
+            LogText = _globalLogBuffer.ToString();
+
+        // Split messages by source:
+        // [out] = stdout from llama-swap process (upstream llama-server logs proxied through)
+        // [err] = stderr from llama-swap process (llama-swap proxy logs)
+        // [manager]/[ui] = Manager-internal messages (not process output)
+        if (message.StartsWith("[out] "))
         {
-            _modelLogBuffer.AppendLine(message);
-            ModelLogText = _modelLogBuffer.ToString();
+            // Upstream llama-server log (proxied through llama-swap stdout)
+            _upstreamLogBuffer.AppendLine(message.Substring(6)); // Strip [out] prefix
+            UpdateFilteredLogTexts();
         }
-        else
+        else if (message.StartsWith("[err] "))
         {
-            _swapLogBuffer.AppendLine(message);
-            LlamaSwapLogText = _swapLogBuffer.ToString();
+            // llama-swap proxy log (stderr)
+            _swapLogBuffer.AppendLine(message.Substring(6)); // Strip [err] prefix
+            UpdateFilteredLogTexts();
         }
+        // [manager] and [ui] messages go to global log only, not to specific panels
     }
 
     private void UpdateUI()
@@ -341,12 +380,18 @@ public partial class MainViewModel : ObservableObject
         {
             case LlamaSwapStatus.Running:
                 StatusColor = "#A6E3A1";
+                StartMetricsPolling();
+                _ = StartLogStreamingAsync();
                 break;
             case LlamaSwapStatus.Error:
                 StatusColor = "#F38BA8";
+                StopMetricsPolling();
+                _ = StopLogStreamingAsync();
                 break;
             default:
                 StatusColor = "#888888";
+                StopMetricsPolling();
+                _ = StopLogStreamingAsync();
                 break;
         }
 
@@ -411,6 +456,7 @@ public partial class MainViewModel : ObservableObject
         {
             _processManager.RefreshPaths();
             _processManager.DetectApiUrl();
+            _processManager.DetectLlamaServerUrl();
         });
 
         await Dispatcher.UIThread.InvokeAsync(() =>
@@ -845,6 +891,7 @@ public partial class MainViewModel : ObservableObject
         config.LogLevel = string.IsNullOrWhiteSpace(LogLevel) || LogLevel.StartsWith("Avalonia.") ? "debug" : LogLevel.Trim();
         config.GlobalTTL = string.IsNullOrEmpty(GlobalTtl) || GlobalTtl == "0" ? null : int.Parse(GlobalTtl);
         config.SendLoadingState = SendLoadingState;
+        config.LogFile ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".llama-swap", "upstream.log");
 
         return config;
     }
@@ -1312,6 +1359,182 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+
+    // --- Metrics polling ---
+    private void StartMetricsPolling()
+    {
+        StopMetricsPolling();
+
+        // Use llama-server URL for metrics (not llama-swap which has different metrics)
+        var baseUrl = _processManager.LlamaServerBaseUrl ?? _processManager.DetectedApiBaseUrl;
+        if (string.IsNullOrEmpty(baseUrl)) return;
+
+        _metricsService = new MetricsService(new HttpClient { Timeout = TimeSpan.FromSeconds(2) });
+        _metricsService.SetApiBaseUrl(baseUrl);
+        _metricsCts = new CancellationTokenSource();
+        _ = PollMetricsAsync(_metricsCts.Token);
+    }
+
+    private void StopMetricsPolling()
+    {
+        _metricsCts?.Cancel();
+        _metricsCts?.Dispose();
+        _metricsCts = null;
+        _metricsService = null;
+    }
+
+    // --- Log streaming (llama-swap /logs/stream/{modelId}) ---
+    private async Task StartLogStreamingAsync()
+    {
+        if (_processManager.DetectedApiBaseUrl is null) return;
+
+        // Get the current running model from /running
+        var runningModel = await _processManager.GetRunningModelAsync();
+        if (string.IsNullOrEmpty(runningModel)) return;
+
+        // Stop existing stream if model changed
+        if (_currentStreamingModelId != runningModel)
+        {
+            await StopLogStreamingAsync();
+            _currentStreamingModelId = runningModel;
+
+            _logStreamService = new LogStreamService(
+                new HttpClient { Timeout = TimeSpan.FromSeconds(30) },
+                _processManager.DetectedApiBaseUrl!);
+
+            _logStreamService.LogReceived += OnUpstreamLogReceived;
+            _logStreamCts = new CancellationTokenSource();
+
+            try
+            {
+                await _logStreamService.StartAsync(runningModel, _logStreamCts.Token);
+            }
+            catch { /* stream may fail if model not ready yet */ }
+        }
+    }
+
+    private async Task StopLogStreamingAsync()
+    {
+        if (_logStreamService != null)
+        {
+            _logStreamService.LogReceived -= OnUpstreamLogReceived;
+            await _logStreamService.StopAsync();
+            _logStreamService.Dispose();
+            _logStreamService = null;
+        }
+        _logStreamCts?.Cancel();
+        _logStreamCts?.Dispose();
+        _logStreamCts = null;
+        _currentStreamingModelId = null;
+    }
+
+    private void OnUpstreamLogReceived(string line)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => OnUpstreamLogReceived(line));
+            return;
+        }
+
+        _upstreamLogBuffer.AppendLine(line);
+        UpdateFilteredLogTexts();
+    }
+
+    private void UpdateFilteredLogTexts()
+    {
+        // Filter upstream logs
+        if (string.IsNullOrWhiteSpace(UpstreamLogFilterText))
+        {
+            UpstreamLogText = _upstreamLogBuffer.ToString();
+        }
+        else
+        {
+            try
+            {
+                var regex = new System.Text.RegularExpressions.Regex(UpstreamLogFilterText, System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.Multiline);
+                UpstreamLogText = ApplyFilter(_upstreamLogBuffer.ToString(), regex);
+            }
+            catch
+            {
+                UpstreamLogText = _upstreamLogBuffer.ToString();
+            }
+        }
+
+        // Filter proxy logs
+        if (string.IsNullOrWhiteSpace(ProxyLogFilterText))
+        {
+            LlamaSwapLogText = _swapLogBuffer.ToString();
+        }
+        else
+        {
+            try
+            {
+                var regex = new System.Text.RegularExpressions.Regex(ProxyLogFilterText, System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.Multiline);
+                LlamaSwapLogText = ApplyFilter(_swapLogBuffer.ToString(), regex);
+            }
+            catch
+            {
+                LlamaSwapLogText = _swapLogBuffer.ToString();
+            }
+        }
+    }
+
+    private static string ApplyFilter(string text, System.Text.RegularExpressions.Regex regex)
+    {
+        var sb = new System.Text.StringBuilder();
+        using var reader = new System.IO.StringReader(text);
+        string? line;
+        while ((line = reader.ReadLine()) != null)
+        {
+            if (regex.IsMatch(line))
+                sb.AppendLine(line);
+        }
+        return sb.ToString();
+    }
+
+    partial void OnUpstreamLogFilterTextChanged(string value)
+    {
+        UpdateFilteredLogTexts();
+    }
+
+    partial void OnProxyLogFilterTextChanged(string value)
+    {
+        UpdateFilteredLogTexts();
+    }
+
+    private async Task PollMetricsAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested && _metricsService != null)
+        {
+            try
+            {
+                // Re-detect the llama-server port on each poll. When llama-swap switches
+                // models, the upstream llama-server may move to a different port — without
+                // this the app would keep polling the stale (or null) URL.
+                _processManager.RefreshLlamaServerUrl();
+                var baseUrl = _processManager.LlamaServerBaseUrl ?? _processManager.DetectedApiBaseUrl;
+                if (!string.IsNullOrEmpty(baseUrl) && baseUrl != _metricsService.ApiBaseUrl)
+                {
+                    _metricsService.SetApiBaseUrl(baseUrl);
+                }
+
+                var metrics = await _metricsService.GetMetricsAsync();
+                if (metrics != null)
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        PrefillTokens = (long)metrics.PromptTokens;
+                        DecodeTokens = (long)metrics.EvalTokens;
+                        TokensPerSecond = metrics.TokensPerSecond;
+                        ActiveSlots = metrics.ActiveSlots;
+                    });
+                }
+            }
+            catch { /* ignore polling errors */ }
+
+            await Task.Delay(2000, ct);
+        }
+    }
 }
 
 // Editable model item that parses cmd string
@@ -1355,7 +1578,7 @@ public partial class ModelEditItem : ObservableObject
     [ObservableProperty] private bool _contBatching = true;
     [ObservableProperty] private bool _embeddings;
     [ObservableProperty] private bool _reranking;
-    [ObservableProperty] private bool _metrics;
+    [ObservableProperty] private bool _metrics = true;
     [ObservableProperty] private bool _propsEndpoint;
     [ObservableProperty] private bool _slots = true;
     [ObservableProperty] private string _timeout = "";
