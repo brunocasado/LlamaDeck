@@ -1384,14 +1384,22 @@ public partial class MainViewModel : ObservableObject
         _metricsService = null;
     }
 
-    // --- Log streaming (llama-swap /logs/stream/{modelId}) ---
-    private async Task StartLogStreamingAsync()
-    {
-        if (_processManager.DetectedApiBaseUrl is null) return;
+    // --- Log streaming (llama-swap /logs/stream/upstream) ---
+     private async Task StartLogStreamingAsync()
+     {
+         if (_processManager.DetectedApiBaseUrl is null)
+         {
+             LogMessage?.Invoke("[ui] SSE skipped: DetectedApiBaseUrl is null");
+             return;
+         }
 
-        // Get the current running model from /running
-        var runningModel = await _processManager.GetRunningModelAsync();
-        if (string.IsNullOrEmpty(runningModel)) return;
+         // Get the current running model from /running
+         var runningModel = await _processManager.GetRunningModelAsync();
+         if (string.IsNullOrEmpty(runningModel))
+         {
+             LogMessage?.Invoke("[ui] SSE skipped: no running model");
+             return;
+         }
 
         // Stop existing stream if model changed
         if (_currentStreamingModelId != runningModel)
