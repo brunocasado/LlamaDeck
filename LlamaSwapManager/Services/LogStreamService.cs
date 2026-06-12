@@ -60,6 +60,8 @@ public class LogStreamService : IDisposable
     {
         var url = $"{_apiBaseUrl}/logs/stream/upstream";
 
+        LogReceived?.Invoke("[manager] SSE connecting to: " + url);
+
         try
         {
             // Fetch historical logs first (with timeout to get past logs)
@@ -69,9 +71,9 @@ public class LogStreamService : IDisposable
         {
             return;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Historical fetch failed, continue with streaming
+            LogReceived?.Invoke($"[manager] SSE historical fetch failed: {ex.Message}");
         }
 
         // Then stream new logs
