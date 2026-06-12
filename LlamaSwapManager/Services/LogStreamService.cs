@@ -61,7 +61,15 @@ public class LogStreamService : IDisposable
     private async Task StreamLogsAsync(string modelId, CancellationToken ct)
     {
         // Try model-specific logger first, then fall back to 'upstream'
-        var logger = TrySelectLogger(modelId, ct).Result;
+        string logger;
+        try
+        {
+            logger = await TrySelectLogger(modelId, ct);
+        }
+        catch
+        {
+            logger = "upstream";
+        }
 
         var url = $"{_apiBaseUrl}/logs/stream/{logger}";
 
@@ -154,7 +162,7 @@ public class LogStreamService : IDisposable
         // Use a timeout to fetch historical logs, then stop reading
         // The stream will continue in the background, but we only want the initial burst
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(TimeSpan.FromSeconds(3)); // 3 second timeout for historical logs
+        cts.CancelAfter(TimeSpan.FromSeconds(10)); // 10 second timeout for historical logs
 
         try
         {
@@ -179,7 +187,7 @@ public class LogStreamService : IDisposable
         }
         catch (OperationCanceledException)
         {
-            // Expected: timeout after 3 seconds
+            // Expected: timeout after 10 seconds
         }
         catch (Exception)
         {

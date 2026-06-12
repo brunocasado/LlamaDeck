@@ -342,9 +342,13 @@ public partial class MainViewModel : ObservableObject
         // [out] = stdout from llama-swap process (upstream llama-server logs proxied through)
         // [err] = stderr from llama-swap process (llama-swap proxy logs)
         // [manager]/[ui] = Manager-internal messages (not process output)
-        if (message.StartsWith("[out] "))
+        // NOTE: When SSE stream is active, upstream logs come from LogStreamService,
+        // not from [out] stdout — so we skip [out] to avoid mixing proxy logs into
+        // the upstream panel.
+        if (message.StartsWith("[out] ") && _logStreamService is null)
         {
             // Upstream llama-server log (proxied through llama-swap stdout)
+            // Only used when SSE stream is not active
             _upstreamLogBuffer.AppendLine(message.Substring(6)); // Strip [out] prefix
             UpdateFilteredLogTexts();
         }
