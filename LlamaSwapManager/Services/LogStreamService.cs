@@ -9,7 +9,8 @@ using System.Threading.Tasks;
 namespace LlamaSwapManager.Services;
 
 /// <summary>
-/// Streams logs from llama-swap's /logs/stream/{modelId} endpoint.
+/// Streams logs from llama-swap's /logs/stream endpoint.
+/// Tries model-specific logger first, falls back to 'upstream' if unavailable.
 /// Returns real-time llama-server logs in the format:
 ///   {timestamp} {level} {component}: {message}
 /// </summary>
@@ -34,7 +35,7 @@ public class LogStreamService : IDisposable
 
     /// <summary>
     /// Starts streaming logs for the given model.
-    /// Fetches historical logs first (with timeout), then continues streaming new logs.
+    /// Tries model-specific logger first, falls back to 'upstream'.
     /// </summary>
     public async Task StartAsync(string modelId, CancellationToken ct = default)
     {
@@ -59,7 +60,10 @@ public class LogStreamService : IDisposable
 
     private async Task StreamLogsAsync(string modelId, CancellationToken ct)
     {
-        var url = $"{_apiBaseUrl}/logs/stream/{Uri.EscapeDataString(modelId)}";
+        // Try model-specific logger first, then fall back to 'upstream'
+        var logger = TrySelectLogger(modelId, ct).Result;
+
+        var url = $"{_apiBaseUrl}/logs/stream/{logger}";
 
         try
         {
@@ -84,6 +88,14 @@ public class LogStreamService : IDisposable
                 using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
                 if (!response.IsSuccessStatusCode)
                 {
+                    // If we get a 400, the logger is invalid — try fallback
+                    if ((int)response.StatusCode == 400 && logger != "upstream")
+                    {
+                        logger = "upstream";
+                        url = $"{_apiBaseUrl}/logs/stream/{logger}";
+                        await Task.Delay(1000, ct);
+                        continue;
+                    }
                     await Task.Delay(2000, ct);
                     continue;
                 }
@@ -111,6 +123,29 @@ public class LogStreamService : IDisposable
                 if (!ct.IsCancellationRequested)
                     await Task.Delay(3000, ct);
             }
+        }
+    }
+
+    private async Task<string> TrySelectLogger(string modelId, CancellationToken ct)
+    {
+        // First, check if model-specific logger is supported by hitting the endpoint
+        var testUrl = $"{_apiBaseUrl}/logs/stream/{modelId}";
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, testUrl);
+            using var response = await _httpClient.SendAsync(request, ct);
+            if ((int)response.StatusCode == 400)
+            {
+                // Model-specific logger not supported, fall back to upstream
+                return "upstream";
+            }
+            // 200 or other success — model-specific logger works
+            return modelId;
+        }
+        catch
+        {
+            // Any error — fall back to upstream
+            return "upstream";
         }
     }
 

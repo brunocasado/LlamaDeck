@@ -46,7 +46,7 @@ public partial class MainViewModel : ObservableObject
     // Settings
     [ObservableProperty] private string _startPort = "5800";
     [ObservableProperty] private string _healthCheckTimeout = "500";
-    [ObservableProperty] private string _logLevel = "debug";
+    [ObservableProperty] private string _logLevel = "info";
     [ObservableProperty] private string _globalTtl = "0";
     [ObservableProperty] private bool _sendLoadingState = true;
 
