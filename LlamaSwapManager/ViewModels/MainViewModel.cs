@@ -50,6 +50,13 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _globalTtl = "0";
     [ObservableProperty] private bool _sendLoadingState = true;
 
+    // GPU backend selection
+    [ObservableProperty] private string _selectedGpuBackend = "";
+    [ObservableProperty] private string _gpuDetectionStatus = "";
+    [ObservableProperty] private string _gpuDetectionStatusColor = "#888888";
+    private readonly List<string> _gpuBackendOptions = new();
+    public IReadOnlyList<string> GpuBackendOptions => _gpuBackendOptions;
+
     // Logs
     [ObservableProperty] private ObservableCollection<string> _logMessages = new();
     [ObservableProperty] private string _logText = "";
@@ -98,6 +105,9 @@ public partial class MainViewModel : ObservableObject
     private LogStreamService? _logStreamService;
     private CancellationTokenSource? _logStreamCts;
     private string? _currentStreamingModelId;
+
+    // Update subsystem
+    public UpdateViewModel UpdateViewModel { get; }
 
     public enum AppView { Models, Matrix, Logs, Metrics }
 
@@ -205,6 +215,14 @@ public partial class MainViewModel : ObservableObject
         if (File.Exists(defaultServerPath))
             LlamaServerPath = defaultServerPath;
 
+         // Initialize update subsystem after paths are resolved
+        var updateDir = _processManager.ExecutablePath ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".llama-swap");
+        var llamaCppDir = _processManager.LlamaCppDirectory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".llama");
+        UpdateViewModel = new UpdateViewModel(updateDir, llamaCppDir, message => OnLogMessage(message));
+
+        // Detect GPU backends
+        DetectGpuBackends();
+
         Status = LlamaSwapStatus.Stopped;
         UpdateUI();
 
@@ -231,6 +249,44 @@ public partial class MainViewModel : ObservableObject
         {
             ConfigFilePath = _processManager.ConfigPath;
             ConfigFileAutoDetected = true;
+        }
+    }
+
+    private void DetectGpuBackends()
+    {
+        try
+        {
+            var backends = GpuDetectionSettings.GetAvailableBackends();
+            _gpuBackendOptions.Clear();
+
+            foreach (var backend in backends)
+            {
+                var displayName = $"{backend.Name} ({backend.Detail})";
+                _gpuBackendOptions.Add(displayName);
+            }
+
+            // Set default to first available (highest priority)
+            if (_gpuBackendOptions.Count > 0)
+            {
+                SelectedGpuBackend = _gpuBackendOptions[0];
+                GpuDetectionStatus = $"Auto-detected: {backends[0].Name}";
+                GpuDetectionStatusColor = "#A6E3A1";
+            }
+            else
+            {
+                _gpuBackendOptions.Add("CPU Only (no GPU detected)");
+                SelectedGpuBackend = _gpuBackendOptions[0];
+                GpuDetectionStatus = "No GPU detected — using CPU";
+                GpuDetectionStatusColor = "#F9E2AF";
+            }
+        }
+        catch (Exception ex)
+        {
+            GpuDetectionStatus = $"Error detecting GPU: {ex.Message}";
+            GpuDetectionStatusColor = "#F38BA8";
+            _gpuBackendOptions.Clear();
+            _gpuBackendOptions.Add("CPU Only (detection failed)");
+            SelectedGpuBackend = _gpuBackendOptions[0];
         }
     }
 
@@ -1498,9 +1554,27 @@ public partial class MainViewModel : ObservableObject
         UpdateFilteredLogTexts();
     }
 
-    partial void OnProxyLogFilterTextChanged(string value)
+     partial void OnProxyLogFilterTextChanged(string value)
     {
         UpdateFilteredLogTexts();
+    }
+
+     partial void OnSelectedGpuBackendChanged(string value)
+    {
+        // Map display name back to GpuBackend enum
+        var backends = GpuDetectionSettings.GetAvailableBackends();
+        var newBackend = backends.FirstOrDefault(b => $"{b.Name} ({b.Detail})" == SelectedGpuBackend);
+
+        if (newBackend.Backend != GpuDetectionService.GpuBackend.CpuOnly)
+        {
+            GpuDetectionSettings.PreferredBackend = newBackend.Backend;
+            OnLogMessage($"[ui] GPU backend set to: {newBackend.Name}");
+        }
+        else
+        {
+            GpuDetectionSettings.PreferredBackend = null; // reset to auto-detect
+            OnLogMessage("[ui] GPU backend reset to auto-detect (CPU fallback)");
+        }
     }
 
     private async Task PollMetricsAsync(CancellationToken ct)
