@@ -196,15 +196,17 @@ public class LlamaCppDownloader : IDisposable
     private DetectedAsset? DetectAssetForPlatform(
         string tag, JsonElement? release, string? preferredCudaVersion = null)
     {
-        // macOS: always use platform-specific build (Metal built-in)
+        var isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+        var isLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
         var isMacArm = RuntimeInformation.IsOSPlatform(OSPlatform.OSX) &&
                        RuntimeInformation.ProcessArchitecture == Architecture.Arm64;
         var isMacIntel = RuntimeInformation.IsOSPlatform(OSPlatform.OSX) &&
                          RuntimeInformation.ProcessArchitecture == Architecture.X64;
 
+        var platformName = isWindows ? "Windows" : isLinux ? "Linux" : "macOS";
+        LogMessage?.Invoke($"[llama.cpp] Platform: {platformName}, Arch: {RuntimeInformation.ProcessArchitecture}, Tag: {tag}");
+
         var patterns = new List<string?>();
-        var isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-        var isLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
 
         if (isMacArm)
         {
@@ -218,18 +220,29 @@ public class LlamaCppDownloader : IDisposable
         {
             // Windows/Linux: use user preference or auto-detect
             var effectiveBackend = GpuDetectionSettings.GetEffectiveBackend();
+            LogMessage?.Invoke($"[llama.cpp] GPU backend setting: {effectiveBackend}");
+
+            var detectedBackends = GpuDetectionService.DetectBackends();
+            var detectedNames = string.Join(", ", detectedBackends.Select(d => $"{d.Backend}({d.Priority})"));
+            LogMessage?.Invoke($"[llama.cpp] Detected backends: {detectedNames}");
+
             var userPattern = GpuDetectionService.GetPreferredAssetPattern(effectiveBackend);
             if (userPattern != null)
+            {
                 patterns.Add(userPattern);
+                LogMessage?.Invoke($"[llama.cpp] User preference pattern: {userPattern}");
+            }
 
             // Fall back to auto-detected backends in priority order
-            var detected = GpuDetectionService.DetectBackends();
-            foreach (var gpu in detected)
+            foreach (var gpu in detectedBackends)
             {
                 if (gpu.Backend == effectiveBackend) continue;
                 var pattern = GpuDetectionService.GetPreferredAssetPattern(gpu.Backend);
                 if (pattern != null && !patterns.Contains(pattern))
+                {
                     patterns.Add(pattern);
+                    LogMessage?.Invoke($"[llama.cpp] Auto-detected pattern: {pattern}");
+                }
             }
         }
 
@@ -255,6 +268,10 @@ public class LlamaCppDownloader : IDisposable
         // Parse CUDA assets for version-aware selection
         var allCudaAssets = ParseCudaAssets(release.Value);
         var cudartAssets = allCudaAssets.Where(a => a.AssetType == CudaAssetType.Cudart).ToList();
+        var llamaCudaAssets = allCudaAssets.Where(a => a.AssetType == CudaAssetType.LlamaBuild).ToList();
+
+        if (llamaCudaAssets.Any())
+            LogMessage?.Invoke($"[llama.cpp] Found {llamaCudaAssets.Count} CUDA llama.cpp asset(s): {string.Join(", ", llamaCudaAssets.Select(a => a.Name))}");
 
         // For CUDA backend on Windows/Linux, use version-aware asset selection
         if (isWindows || isLinux)
@@ -264,42 +281,41 @@ public class LlamaCppDownloader : IDisposable
             if (effectiveBackend == GpuDetectionService.GpuBackend.Cuda)
             {
                 var cudaVersion = preferredCudaVersion ?? CudaVersionDetector.GetCudaVersion();
-                var llamaCudaAssets = allCudaAssets.Where(a => a.AssetType == CudaAssetType.LlamaBuild).ToList();
+                LogMessage?.Invoke($"[llama.cpp] CUDA toolkit version: {(cudaVersion ?? "NOT DETECTED")}");
 
-                if (llamaCudaAssets.Any())
+                if (!string.IsNullOrEmpty(cudaVersion))
                 {
-                    if (!string.IsNullOrEmpty(cudaVersion))
+                    // Version-aware selection for CUDA builds
+                    var bestAsset = FindBestCudaAsset(llamaCudaAssets, cudaVersion);
+                    if (bestAsset != null)
                     {
-                        // Version-aware selection for CUDA builds
-                        var bestAsset = FindBestCudaAsset(llamaCudaAssets, cudaVersion);
-                        if (bestAsset != null)
-                        {
-                            var source = preferredCudaVersion != null ? $"forced ({preferredCudaVersion})" : "auto-detected";
-                            LogMessage?.Invoke($"[llama.cpp] CUDA version-aware selection ({source}): {bestAsset.Name}");
-                            return new DetectedAsset(
-                                bestAsset.Name,
-                                bestAsset.Size,
-                                bestAsset.Url,
-                                bestAsset.Digest,
-                                cudartAssets);
-                        }
+                        var source = preferredCudaVersion != null ? $"forced ({preferredCudaVersion})" : "auto-detected";
+                        LogMessage?.Invoke($"[llama.cpp] CUDA version-aware selection ({source}): {bestAsset.Name}");
+                        return new DetectedAsset(
+                            bestAsset.Name,
+                            bestAsset.Size,
+                            bestAsset.Url,
+                            bestAsset.Digest,
+                            cudartAssets);
                     }
 
-                    // Fallback: no CUDA version detected — pick latest CUDA build
-                    // User has CUDA selected but toolkit not installed; give them the newest CUDA
-                    if (cudaVersion == null)
+                    LogMessage?.Invoke($"[llama.cpp] No CUDA asset matched version {cudaVersion}, falling back to latest");
+                }
+
+                // Fallback: no CUDA version detected — pick latest CUDA build
+                // User has CUDA selected but toolkit not installed; give them the newest CUDA
+                if (cudaVersion == null)
+                {
+                    var latestAsset = llamaCudaAssets.OrderByDescending(a => a.Name).FirstOrDefault();
+                    if (latestAsset != null)
                     {
-                        var latestAsset = llamaCudaAssets.OrderByDescending(a => a.Name).FirstOrDefault();
-                        if (latestAsset != null)
-                        {
-                            LogMessage?.Invoke($"[llama.cpp] No CUDA version detected — selecting latest CUDA build: {latestAsset.Name}");
-                            return new DetectedAsset(
-                                latestAsset.Name,
-                                latestAsset.Size,
-                                latestAsset.Url,
-                                latestAsset.Digest,
-                                cudartAssets);
-                        }
+                        LogMessage?.Invoke($"[llama.cpp] No CUDA version detected — selecting latest CUDA build: {latestAsset.Name}");
+                        return new DetectedAsset(
+                            latestAsset.Name,
+                            latestAsset.Size,
+                            latestAsset.Url,
+                            latestAsset.Digest,
+                            cudartAssets);
                     }
                 }
             }
@@ -310,10 +326,12 @@ public class LlamaCppDownloader : IDisposable
         var archFilter = arch == Architecture.Arm64 ? "arm64" : "x64";
         var archiveFormat = isWindows ? ".zip" : ".tar.gz";
 
-        // Filter patterns: if no GPU was detected (only CpuOnly), only use CPU fallback patterns.
-        // This prevents selecting CUDA/Vulkan assets when user has GPU preference but no hardware.
-        var detectedBackends = GpuDetectionService.DetectBackends();
-        var hasGpu = detectedBackends.Any(g => g.Backend != GpuDetectionService.GpuBackend.CpuOnly);
+         // Filter patterns: if no GPU was detected (only CpuOnly), only use CPU fallback patterns.
+            // This prevents selecting CUDA/Vulkan assets when user has GPU preference but no hardware.
+            var nonCudaBackends = GpuDetectionService.DetectBackends();
+            var hasGpu = nonCudaBackends.Any(g => g.Backend != GpuDetectionService.GpuBackend.CpuOnly);
+            LogMessage?.Invoke($"[llama.cpp] Has GPU: {hasGpu}, Patterns: [{string.Join(", ", patterns.Where(p => p != null))}], Format: {archiveFormat}");
+
         var filteredPatterns = patterns.Where(p =>
         {
             if (p == null) return false;
@@ -322,28 +340,37 @@ public class LlamaCppDownloader : IDisposable
             return p.Contains("-cpu-");
         }).ToList();
 
+        LogMessage?.Invoke($"[llama.cpp] Filtered patterns (GPU filter applied): [{string.Join(", ", filteredPatterns)}]");
+
         // Try each pattern in priority order
         foreach (var pattern in filteredPatterns)
         {
             if (pattern == null) continue;
 
-            foreach (var asset in assetArray)
-            {
-                var name = asset.GetProperty("name").GetString() ?? "";
+            var matches = assetArray
+                .Select(a => a.GetProperty("name").GetString() ?? "")
+                .Where(name => name.Contains(pattern) && name.EndsWith(archiveFormat) && name.Contains(archFilter))
+                .ToList();
 
-                // Match pattern + architecture + correct archive format
-                if (name.Contains(pattern) &&
-                    name.EndsWith(archiveFormat) &&
-                    name.Contains(archFilter))
-                {
-                    return new DetectedAsset(
-                        name, asset.GetProperty("size").GetInt64(),
-                        asset.GetProperty("browser_download_url").GetString() ?? "",
-                        asset.GetProperty("digest").GetString() ?? "",
-                        cudartAssets);
-                }
+            if (matches.Any())
+            {
+                LogMessage?.Invoke($"[llama.cpp] Pattern '{pattern}' matched: {matches[0]}");
+                var asset = assetArray.First(a => (a.GetProperty("name").GetString() ?? "") == matches[0]);
+                return new DetectedAsset(
+                    matches[0], asset.GetProperty("size").GetInt64(),
+                    asset.GetProperty("browser_download_url").GetString() ?? "",
+                    asset.GetProperty("digest").GetString() ?? "",
+                    cudartAssets);
+            }
+            else
+            {
+                LogMessage?.Invoke($"[llama.cpp] Pattern '{pattern}' did not match any asset");
             }
         }
+
+        // Final fallback: list available assets for debugging
+        var availableAssets = assetArray.Select(a => a.GetProperty("name").GetString() ?? "").ToList();
+        LogMessage?.Invoke($"[llama.cpp] No pattern matched. Available {availableAssets.Count} assets: {string.Join(", ", availableAssets)}");
 
         // Final fallback: any platform-appropriate tar.gz/zip
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
@@ -557,6 +584,12 @@ public class LlamaCppDownloader : IDisposable
 
             // Copy extracted files to target directory
             LogMessage?.Invoke("[llama.cpp] Installing new files...");
+
+            // List extracted files for debugging
+            var stagingFiles = Directory.GetFiles(stagingDir, "*", SearchOption.AllDirectories)
+                .Select(f => f.Replace(stagingDir + Path.DirectorySeparatorChar, "")).ToList();
+            LogMessage?.Invoke($"[llama.cpp] Extracted {stagingFiles.Count} files: {string.Join(", ", stagingFiles)}");
+
             CopyDirectoryContents(stagingDir, targetDirectory);
 
             // Make binaries executable on Unix
@@ -569,9 +602,15 @@ public class LlamaCppDownloader : IDisposable
             var serverBin = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
                 ? "llama-server.exe"
                 : "llama-server";
-            if (!File.Exists(Path.Combine(targetDirectory, serverBin)))
+            var expectedPath = Path.Combine(targetDirectory, serverBin);
+            var existsAfterInstall = File.Exists(expectedPath);
+            var targetFiles = Directory.GetFiles(targetDirectory, "*", SearchOption.TopDirectoryOnly)
+                .Select(f => Path.GetFileName(f)).ToList();
+            LogMessage?.Invoke($"[llama.cpp] Verify '{serverBin}': exists={existsAfterInstall}, target has {targetFiles.Count} files: {string.Join(", ", targetFiles)}");
+
+            if (!existsAfterInstall)
             {
-                LogMessage?.Invoke($"[llama.cpp] Installed binary '{serverBin}' not found — rollback");
+                LogMessage?.Invoke($"[llama.cpp] Installed binary '{serverBin}' not found at '{expectedPath}' — rollback");
                 Rollback(backupPath, targetDirectory);
                 return false;
             }
