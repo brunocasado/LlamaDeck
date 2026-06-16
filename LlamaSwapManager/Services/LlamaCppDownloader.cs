@@ -287,9 +287,22 @@ public class LlamaCppDownloader : IDisposable
         // Non-CUDA path: use existing pattern-based detection
         var arch = RuntimeInformation.ProcessArchitecture;
         var archFilter = arch == Architecture.Arm64 ? "arm64" : "x64";
+        var archiveFormat = isWindows ? ".zip" : ".tar.gz";
+
+        // Filter patterns: if no GPU was detected (only CpuOnly), only use CPU fallback patterns.
+        // This prevents selecting CUDA/Vulkan assets when user has GPU preference but no hardware.
+        var detectedBackends = GpuDetectionService.DetectBackends();
+        var hasGpu = detectedBackends.Any(g => g.Backend != GpuDetectionService.GpuBackend.CpuOnly);
+        var filteredPatterns = patterns.Where(p =>
+        {
+            if (p == null) return false;
+            if (hasGpu) return true;
+            // No GPU detected — only allow CPU fallback patterns
+            return p.Contains("-cpu-");
+        }).ToList();
 
         // Try each pattern in priority order
-        foreach (var pattern in patterns)
+        foreach (var pattern in filteredPatterns)
         {
             if (pattern == null) continue;
 
@@ -299,7 +312,7 @@ public class LlamaCppDownloader : IDisposable
 
                 // Match pattern + architecture + correct archive format
                 if (name.Contains(pattern) &&
-                    name.EndsWith(".tar.gz") &&
+                    name.EndsWith(archiveFormat) &&
                     name.Contains(archFilter))
                 {
                     return new DetectedAsset(
@@ -332,7 +345,7 @@ public class LlamaCppDownloader : IDisposable
             foreach (var asset in assetArray)
             {
                 var name = asset.GetProperty("name").GetString() ?? "";
-                if (name.Contains("-win-cpu-x64-") && name.EndsWith(".zip"))
+                if (name.Contains("-win-cpu-") && name.EndsWith(".zip") && name.Contains(archFilter))
                 {
                     return new DetectedAsset(
                         name, asset.GetProperty("size").GetInt64(),
