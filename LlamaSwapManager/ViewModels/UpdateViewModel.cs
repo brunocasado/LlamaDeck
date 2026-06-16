@@ -337,6 +337,9 @@ public partial class UpdateViewModel : ObservableObject, IDisposable
 
     private void OnLogMessage(string message)
     {
+        // Write to file logger (always, even before UI is ready)
+        FileLogger.Instance.Log(message);
+
         if (!Dispatcher.UIThread.CheckAccess())
         {
             Dispatcher.UIThread.Post(() => OnLogMessage(message));
