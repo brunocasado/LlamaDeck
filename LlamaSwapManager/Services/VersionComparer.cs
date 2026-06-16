@@ -6,7 +6,7 @@ namespace LlamaSwapManager.Services;
 /// Utility for parsing and comparing llama-swap and llama.cpp version strings.
 ///
 /// llama-swap:  v + integer (e.g. v223, v224)
-/// llama.cpp:   b + 5 hex digits (e.g. b9610, b9616)
+/// llama.cpp:   b + decimal build number (e.g. b9660, b9659)
 /// </summary>
 public static class VersionComparer
 {
@@ -28,12 +28,15 @@ public static class VersionComparer
             return new VersionInfo { Type = VersionType.LlamaSwap, NumericValue = (ulong)vNum, Raw = trimmed };
         }
 
-        // llama.cpp: b + 4 or 5 hex digits (e.g. b9616, b9611)
+        // llama.cpp: b + decimal build number (e.g., b9660, b9659, b9553)
         if (trimmed.StartsWith("b", StringComparison.OrdinalIgnoreCase)
-            && (trimmed.Length == 5 || trimmed.Length == 6)
-            && ulong.TryParse(trimmed[1..], System.Globalization.NumberStyles.HexNumber, null, out var bNum))
+            && trimmed.Length >= 2)
         {
-            return new VersionInfo { Type = VersionType.LlamaCpp, NumericValue = bNum, Raw = trimmed };
+            var decimalPart = trimmed[1..];
+            if (ulong.TryParse(decimalPart, out var bNum))
+            {
+                return new VersionInfo { Type = VersionType.LlamaCpp, NumericValue = bNum, Raw = trimmed };
+            }
         }
 
         // Fallback: try to extract a pure integer (for edge cases)

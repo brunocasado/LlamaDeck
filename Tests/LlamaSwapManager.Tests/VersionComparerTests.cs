@@ -22,7 +22,7 @@ public class VersionComparerTests
         var result = VersionComparer.Parse("b9616");
         Assert.NotNull(result);
         Assert.Equal(VersionType.LlamaCpp, result.Type);
-        Assert.Equal(0x9616ul, result.NumericValue);
+        Assert.Equal(9616ul, result.NumericValue);
         Assert.Equal("b9616", result.Raw);
     }
 
@@ -86,7 +86,7 @@ public class VersionComparerTests
         var result = VersionComparer.Parse("B9616");
         Assert.NotNull(result);
         Assert.Equal(VersionType.LlamaCpp, result.Type);
-        Assert.Equal(0x9616ul, result.NumericValue);
+        Assert.Equal(9616ul, result.NumericValue);
     }
 
     // --- Compare tests ---
@@ -142,10 +142,12 @@ public class VersionComparerTests
     }
 
     [Fact]
-    public void Compare_LlamaCppHexBoundary()
+    public void Compare_LlamaCppVersionOrdering()
     {
-        Assert.Equal(1, VersionComparer.Compare("ba000", "b9999"));
-        Assert.Equal(-1, VersionComparer.Compare("b9999", "ba000"));
+        // Verify decimal ordering is correct (b9660 > b9659 > b9658)
+        Assert.Equal(1, VersionComparer.Compare("b9660", "b9659"));
+        Assert.Equal(-1, VersionComparer.Compare("b9659", "b9660"));
+        Assert.Equal(0, VersionComparer.Compare("b9659", "b9659"));
     }
 
     [Fact]
