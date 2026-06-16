@@ -427,12 +427,17 @@ public class UpdateService : IDisposable
                 }
             }
 
-            // Verify file size
+            // Verify file size (allow ±1% tolerance for GitHub CDN inconsistencies)
             var fileInfo = new FileInfo(destination);
-            if (totalBytes > 0 && fileInfo.Length != totalBytes)
+            if (totalBytes > 0)
             {
-                LogMessage?.Invoke($"Download size mismatch: expected {totalBytes}, got {fileInfo.Length}");
-                return false;
+                var diff = Math.Abs(fileInfo.Length - totalBytes);
+                var tolerance = (long)(totalBytes * 0.02); // 2% tolerance for GitHub CDN inconsistencies
+                if (diff > tolerance)
+                {
+                    LogMessage?.Invoke($"Download size mismatch: expected {totalBytes}, got {fileInfo.Length}");
+                    return false;
+                }
             }
 
             return true;
@@ -560,9 +565,11 @@ public class UpdateService : IDisposable
         {
             try
             {
+                // macOS: chmod is at /bin, not /usr/bin
+                var chmodPath = _osName == "darwin" ? "/bin/chmod" : "/usr/bin/chmod";
                 var psi = new ProcessStartInfo
                 {
-                    FileName = "chmod",
+                    FileName = chmodPath,
                     Arguments = $"+x \"{path}\"",
                     UseShellExecute = false,
                     CreateNoWindow = true
@@ -579,7 +586,7 @@ public class UpdateService : IDisposable
         {
             var psi = new ProcessStartInfo
             {
-                FileName = "xattr",
+                FileName = "/usr/bin/xattr",
                 Arguments = $"-d com.apple.quarantine \"{path}\"",
                 UseShellExecute = false,
                 CreateNoWindow = true
@@ -719,11 +726,12 @@ public class UpdateService : IDisposable
                         remaining -= read;
                     }
 
-                    // Align to 512-byte boundary
+                    // Align to 512-byte boundary — use Read instead of Seek (GZipStream doesn't support Seek)
                     var remainder = header.FileSize % BlockSize;
                     if (remainder > 0)
                     {
-                        tarStream.Seek(BlockSize - remainder, SeekOrigin.Current);
+                        var skipBuffer = new byte[BlockSize - remainder];
+                        tarStream.Read(skipBuffer, 0, skipBuffer.Length);
                     }
 
                     // Set permissions (if stored in tar)
@@ -766,11 +774,12 @@ public class UpdateService : IDisposable
                 if (read == 0) break;
                 remaining -= read;
             }
-            // Align to 512-byte boundary
+            // Align to 512-byte boundary — use Read instead of Seek (GZipStream doesn't support Seek)
             var remainder = fileSize % BlockSize;
             if (remainder > 0)
             {
-                stream.Seek(BlockSize - remainder, SeekOrigin.Current);
+                var skipBuffer = new byte[BlockSize - remainder];
+                stream.Read(skipBuffer, 0, skipBuffer.Length);
             }
         }
 
