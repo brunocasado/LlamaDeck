@@ -280,8 +280,10 @@ public class LlamaCppDownloader : IDisposable
 
             if (effectiveBackend == GpuDetectionService.GpuBackend.Cuda)
             {
-                var cudaVersion = preferredCudaVersion ?? CudaVersionDetector.GetCudaVersion();
-                LogMessage?.Invoke($"[llama.cpp] CUDA toolkit version: {(cudaVersion ?? "NOT DETECTED")}");
+                var cudaVersion = string.IsNullOrWhiteSpace(preferredCudaVersion)
+                    ? CudaVersionDetector.GetCudaVersion()
+                    : preferredCudaVersion;
+                LogMessage?.Invoke($"[llama.cpp] CUDA toolkit version: {(string.IsNullOrEmpty(cudaVersion) ? "NOT DETECTED" : cudaVersion)}");
 
                 if (!string.IsNullOrEmpty(cudaVersion))
                 {
@@ -289,7 +291,7 @@ public class LlamaCppDownloader : IDisposable
                     var bestAsset = FindBestCudaAsset(llamaCudaAssets, cudaVersion);
                     if (bestAsset != null)
                     {
-                        var source = preferredCudaVersion != null ? $"forced ({preferredCudaVersion})" : "auto-detected";
+                        var source = !string.IsNullOrEmpty(preferredCudaVersion) ? $"forced ({preferredCudaVersion})" : "auto-detected";
                         LogMessage?.Invoke($"[llama.cpp] CUDA version-aware selection ({source}): {bestAsset.Name}");
                         return new DetectedAsset(
                             bestAsset.Name,
@@ -304,12 +306,14 @@ public class LlamaCppDownloader : IDisposable
 
                 // Fallback: no CUDA version detected — pick latest CUDA build
                 // User has CUDA selected but toolkit not installed; give them the newest CUDA
-                if (cudaVersion == null)
+                var hasCudaVersion = !string.IsNullOrEmpty(cudaVersion);
+                if (!hasCudaVersion)
                 {
+                    LogMessage?.Invoke($"[llama.cpp] No CUDA version detected — selecting latest CUDA build");
                     var latestAsset = llamaCudaAssets.OrderByDescending(a => a.Name).FirstOrDefault();
                     if (latestAsset != null)
                     {
-                        LogMessage?.Invoke($"[llama.cpp] No CUDA version detected — selecting latest CUDA build: {latestAsset.Name}");
+                        LogMessage?.Invoke($"[llama.cpp] Selected latest CUDA build: {latestAsset.Name}");
                         return new DetectedAsset(
                             latestAsset.Name,
                             latestAsset.Size,
@@ -317,6 +321,7 @@ public class LlamaCppDownloader : IDisposable
                             latestAsset.Digest,
                             cudartAssets);
                     }
+                    LogMessage?.Invoke($"[llama.cpp] No CUDA assets available in release, falling back to non-CUDA");
                 }
             }
         }
@@ -1444,10 +1449,10 @@ public class LlamaCppDownloader : IDisposable
 
     /// <summary>
     /// Regex to match llama CUDA build assets (not cudart).
-    /// Matches patterns like "llama-cuda12.4-win-cuda-12.4-x64-release.tar.gz".
+    /// Matches patterns like "llama-b9670-bin-win-cuda-12.4-x64-release.tar.gz".
     /// </summary>
     private static readonly Regex LlamaCudaBuildRegex = new(
-        @"llama-cuda\d+.*?cuda-\d+\.\d+(?:\.\d+)?",
+        @"llama\b.*cuda-\d+\.\d+",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>
