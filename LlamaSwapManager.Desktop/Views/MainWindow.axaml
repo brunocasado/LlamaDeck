@@ -836,6 +836,10 @@
               <StackPanel Spacing="6">
                 <TextBlock Text="llama.cpp Update" FontSize="16" FontWeight="Bold" Foreground="#CDD6F4" />
                 <TextBlock Text="Download and install the latest llama.cpp release from GitHub." FontSize="12" Foreground="#A6ADC8" TextWrapping="Wrap" />
+                <Grid ColumnDefinitions="140,*" IsVisible="{Binding HasCudaGpu}" Margin="0,8,0,0">
+                  <TextBlock Grid.Column="0" Text="CUDA Version" FontSize="12" Foreground="#A6ADC8" VerticalAlignment="Center" />
+                  <ComboBox Grid.Column="1" ItemsSource="{Binding CudaVersionOptions}" SelectedItem="{Binding SelectedCudaVersion}" />
+                </Grid>
               </StackPanel>
             </Border>
 

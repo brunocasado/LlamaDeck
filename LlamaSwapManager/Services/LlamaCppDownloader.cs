@@ -280,49 +280,46 @@ public class LlamaCppDownloader : IDisposable
 
             if (effectiveBackend == GpuDetectionService.GpuBackend.Cuda)
             {
-                var cudaVersion = string.IsNullOrWhiteSpace(preferredCudaVersion)
-                    ? CudaVersionDetector.GetCudaVersion()
+                // User-selected CUDA version (from UI picker) or empty string
+                // No auto-detection of system CUDA toolkit — llama.cpp bundles its own DLLs
+                var userVersion = string.IsNullOrWhiteSpace(preferredCudaVersion)
+                    ? null
                     : preferredCudaVersion;
-                LogMessage?.Invoke($"[llama.cpp] CUDA toolkit version: {(string.IsNullOrEmpty(cudaVersion) ? "NOT DETECTED" : cudaVersion)}");
 
-                if (!string.IsNullOrEmpty(cudaVersion))
+                LogMessage?.Invoke($"[llama.cpp] CUDA version selected: {(userVersion ?? "auto (latest)")}");
+
+                if (userVersion != null)
                 {
-                    // Version-aware selection for CUDA builds
-                    var bestAsset = FindBestCudaAsset(llamaCudaAssets, cudaVersion);
+                    // User explicitly chose a version — find matching CUDA build
+                    var bestAsset = FindBestCudaAsset(llamaCudaAssets, userVersion);
                     if (bestAsset != null)
                     {
-                        var source = !string.IsNullOrEmpty(preferredCudaVersion) ? $"forced ({preferredCudaVersion})" : "auto-detected";
-                        LogMessage?.Invoke($"[llama.cpp] CUDA version-aware selection ({source}): {bestAsset.Name}");
+                        LogMessage?.Invoke($"[llama.cpp] Selected CUDA {userVersion} build: {bestAsset.Name}");
                         return new DetectedAsset(
                             bestAsset.Name,
                             bestAsset.Size,
                             bestAsset.Url,
                             bestAsset.Digest,
-                            cudartAssets);
+                            cudartAssets.Where(a => a.Name.Contains(userVersion)).ToList());
                     }
 
-                    LogMessage?.Invoke($"[llama.cpp] No CUDA asset matched version {cudaVersion}, falling back to latest");
+                    LogMessage?.Invoke($"[llama.cpp] No CUDA {userVersion} asset found, falling back to latest");
                 }
 
-                // Fallback: no CUDA version detected — pick latest CUDA build
-                // User has CUDA selected but toolkit not installed; give them the newest CUDA
-                var hasCudaVersion = !string.IsNullOrEmpty(cudaVersion);
-                if (!hasCudaVersion)
+                // Fallback: pick latest CUDA build (user didn't specify version)
+                var latestAsset = llamaCudaAssets.OrderByDescending(a => a.Name).FirstOrDefault();
+                if (latestAsset != null)
                 {
-                    LogMessage?.Invoke($"[llama.cpp] No CUDA version detected — selecting latest CUDA build");
-                    var latestAsset = llamaCudaAssets.OrderByDescending(a => a.Name).FirstOrDefault();
-                    if (latestAsset != null)
-                    {
-                        LogMessage?.Invoke($"[llama.cpp] Selected latest CUDA build: {latestAsset.Name}");
-                        return new DetectedAsset(
-                            latestAsset.Name,
-                            latestAsset.Size,
-                            latestAsset.Url,
-                            latestAsset.Digest,
-                            cudartAssets);
-                    }
-                    LogMessage?.Invoke($"[llama.cpp] No CUDA assets available in release, falling back to non-CUDA");
+                    LogMessage?.Invoke($"[llama.cpp] Selected latest CUDA build: {latestAsset.Name}");
+                    return new DetectedAsset(
+                        latestAsset.Name,
+                        latestAsset.Size,
+                        latestAsset.Url,
+                        latestAsset.Digest,
+                        cudartAssets);
                 }
+
+                LogMessage?.Invoke($"[llama.cpp] No CUDA assets available in release, falling back to non-CUDA");
             }
         }
 
