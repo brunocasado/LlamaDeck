@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -40,11 +39,6 @@ public partial class UpdateViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _llamaCppStatusText = "";
     [ObservableProperty] private string _llamaCppStatusColor = "#888888";
 
-    // CUDA version selection (shown when CUDA GPU is detected)
-    public List<string> CudaVersionOptions { get; } = new() { "12.4", "13.3" };
-    [ObservableProperty] private string _selectedCudaVersion = "12.4";
-    [ObservableProperty] private bool _hasCudaGpu;
-
     // Progress
     [ObservableProperty] private string _progressText = "";
     [ObservableProperty] private int _progressPercentage;
@@ -78,9 +72,6 @@ public partial class UpdateViewModel : ObservableObject, IDisposable
         _updateService.LogMessage += OnLogMessage;
         _llamaCppDownloader.LogMessage += OnLogMessage;
 
-        // Detect if CUDA GPU is available
-        DetectCudaGpuAsync();
-
         CheckCommand = new AsyncRelayCommand(CheckForUpdatesInternalAsync);
         UpdateCommand = new AsyncRelayCommand(ExecuteUpdateAsync);
         LlamaCppCheckCommand = new AsyncRelayCommand(CheckLlamaCppUpdatesInternalAsync);
@@ -89,19 +80,6 @@ public partial class UpdateViewModel : ObservableObject, IDisposable
         UpdateButtonEnabled = false;
         _ = CheckForUpdatesInternalAsync();
         _ = CheckLlamaCppUpdatesInternalAsync();
-    }
-
-    private void DetectCudaGpuAsync()
-    {
-        try
-        {
-            var backends = GpuDetectionService.DetectBackends();
-            HasCudaGpu = backends.Any(b => b.Backend == GpuDetectionService.GpuBackend.Cuda);
-        }
-        catch
-        {
-            HasCudaGpu = false;
-        }
     }
 
     private async Task CheckForUpdatesInternalAsync()
@@ -259,16 +237,11 @@ public partial class UpdateViewModel : ObservableObject, IDisposable
 
         try
         {
-            // Use the user-selected CUDA version (empty = auto, specific version = exact match)
-            var cudaVersion = string.IsNullOrWhiteSpace(_preferredCudaVersion)
-                ? SelectedCudaVersion
-                : _preferredCudaVersion;
-
             var success = await _llamaCppDownloader.DownloadAndInstallAsync(
                 LlamaCppDirectory,
                 new Progress<double>(p => ProgressPercentage = (int)(p * 100)),
                 _updateCts.Token,
-                cudaVersion);
+                _preferredCudaVersion);
 
             if (success)
             {

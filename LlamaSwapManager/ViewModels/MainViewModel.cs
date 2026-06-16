@@ -57,11 +57,12 @@ public partial class MainViewModel : ObservableObject
     private readonly List<string> _gpuBackendOptions = new();
     public IReadOnlyList<string> GpuBackendOptions => _gpuBackendOptions;
 
-    // CUDA version detection
-    [ObservableProperty] private string _cudaVersion = "";
+    // CUDA version selection (shown when CUDA backend is selected)
+    [ObservableProperty] private string _cudaVersion = "12.4";
     [ObservableProperty] private string _cudaVersionStatus = "";
     [ObservableProperty] private string _cudaVersionStatusColor = "#888888";
-    private readonly List<string> _cudaVersionOptions = new();
+    [ObservableProperty] private bool _isCudaVersionVisible;
+    private readonly List<string> _cudaVersionOptions = new() { "12.4", "13.3" };
     public IReadOnlyList<string> CudaVersionOptions => _cudaVersionOptions;
 
     // Logs
@@ -305,34 +306,26 @@ public partial class MainViewModel : ObservableObject
 
     private void DetectCudaVersion()
     {
-        try
-        {
-            _cudaVersionOptions.Clear();
-            var detectedVersion = CudaVersionDetector.GetCudaVersion();
+        // Fixed options — user picks the CUDA version for llama.cpp builds
+        // llama.cpp bundles its own CUDA DLLs, so system detection is irrelevant
+        CudaVersion = "12.4";
+        CudaVersionStatus = "llama.cpp bundles its own CUDA runtime DLLs";
+        CudaVersionStatusColor = "#A6ADC8";
+        UpdateCudaVersionVisibility();
+    }
 
-            if (!string.IsNullOrEmpty(detectedVersion))
-            {
-                _cudaVersionOptions.Add("Auto-detect");
-                _cudaVersionOptions.Add(detectedVersion);
-                CudaVersion = detectedVersion;
-                CudaVersionStatus = $"CUDA {detectedVersion} detected";
-                CudaVersionStatusColor = "#A6E3A1";
-            }
-            else
-            {
-                _cudaVersionOptions.Add("Auto-detect");
-                CudaVersion = "";
-                CudaVersionStatus = "CUDA not found — will auto-detect at runtime";
-                CudaVersionStatusColor = "#F9E2AF";
-            }
-        }
-        catch (Exception ex)
+    private void UpdateCudaVersionVisibility()
+    {
+        IsCudaVersionVisible = SelectedGpuBackend != null && SelectedGpuBackend.Contains("Cuda", StringComparison.OrdinalIgnoreCase);
+        if (!IsCudaVersionVisible)
         {
-            _cudaVersionOptions.Clear();
-            _cudaVersionOptions.Add("Auto-detect");
-            CudaVersion = "";
-            CudaVersionStatus = $"Error detecting CUDA: {ex.Message}";
-            CudaVersionStatusColor = "#F38BA8";
+            CudaVersion = "12.4";
+            CudaVersionStatus = "";
+        }
+        else
+        {
+            CudaVersionStatus = "llama.cpp bundles its own CUDA runtime DLLs";
+            CudaVersionStatusColor = "#A6ADC8";
         }
     }
 
@@ -405,14 +398,6 @@ public partial class MainViewModel : ObservableObject
             if (_cudaVersionOptions.Contains(savedVersion))
             {
                 CudaVersion = savedVersion;
-                CudaVersionStatus = savedVersion == "Auto-detect" ? "Using auto-detect" : $"Using CUDA {savedVersion}";
-                CudaVersionStatusColor = savedVersion == "Auto-detect" ? "#A6E3A1" : "#B4BEFE";
-            }
-            else
-            {
-                CudaVersion = savedVersion;
-                CudaVersionStatus = $"Saved version {savedVersion} (may not match available)";
-                CudaVersionStatusColor = "#F9E2AF";
             }
         }
 
@@ -1646,6 +1631,8 @@ public partial class MainViewModel : ObservableObject
             GpuDetectionSettings.PreferredBackend = null; // reset to auto-detect
             OnLogMessage("[ui] GPU backend reset to auto-detect (CPU fallback)");
         }
+
+        UpdateCudaVersionVisibility();
     }
 
     private async Task PollMetricsAsync(CancellationToken ct)
