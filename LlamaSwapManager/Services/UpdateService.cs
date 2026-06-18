@@ -116,14 +116,6 @@ public class UpdateService : IDisposable
             var release = System.Text.Json.JsonSerializer.Deserialize<JsonRelease>(json);
             if (release == null) return null;
 
-            // Debug: Print all asset names from GitHub
-            if (release.Assets != null)
-            {
-                var assetNames = string.Join(", ", release.Assets.Select(a => a.Name ?? "null"));
-                LogMessage?.Invoke($"[debug] GitHub assets: {assetNames}");
-                LogMessage?.Invoke($"[debug] Looking for: os={_osName}, arch={_arch}");
-            }
-
             // Find the asset for this platform/arch — strict matching
             var asset = release.Assets?
                 .FirstOrDefault(a => !string.IsNullOrEmpty(a.Name) && AssetMatchesPlatform(a.Name));
@@ -972,14 +964,19 @@ public class UpdateService : IDisposable
 
     public class JsonRelease
     {
+        [System.Text.Json.Serialization.JsonPropertyName("tag_name")]
         public string? TagName { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("assets")]
         public JsonAsset[]? Assets { get; set; }
     }
 
     public class JsonAsset
     {
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string? Name { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("browser_download_url")]
         public string? BrowserDownloadUrl { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("size")]
         public long Size { get; set; }
     }
 
