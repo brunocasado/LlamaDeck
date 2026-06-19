@@ -796,13 +796,13 @@ public class UpdateService : IDisposable
     private class TarReader : IEnumerable<TarReader.TarEntry>, IDisposable
     {
         private readonly Stream _baseStream;
-        private readonly GZipStream? _gzipStream;
+        private readonly Stream? _stream;
 
         public TarReader(Stream baseStream)
         {
             _baseStream = baseStream;
-            // Wrap in GZipStream if needed
-            _gzipStream = new GZipStream(baseStream, CompressionMode.Decompress);
+            // Use the stream as-is (caller may already have wrapped in GZipStream)
+            _stream = baseStream;
         }
 
         public IEnumerator<TarReader.TarEntry> GetEnumerator()
@@ -810,7 +810,7 @@ public class UpdateService : IDisposable
             var buffer = new byte[512];
             var headerBuffer = new byte[512];
 
-            while (ReadBlock(_gzipStream!, headerBuffer) == 512)
+            while (ReadBlock(_stream!, headerBuffer) == 512)
             {
                 // Check for end of archive (all zeros)
                 var isEmpty = headerBuffer.All(b => b == 0);
@@ -819,14 +819,14 @@ public class UpdateService : IDisposable
                 var header = new TarHeader(headerBuffer);
                 if (header.FileName == "") continue;
 
-                var entry = new TarEntry(header, _gzipStream!);
+                var entry = new TarEntry(header, _stream!);
                 yield return entry;
 
                 // Skip file data (aligned to 512-byte blocks)
                 var dataBlocks = (header.FileSize + 511) / 512;
                 for (var i = 0; i < dataBlocks; i++)
                 {
-                    var bytesRead = ReadBlock(_gzipStream!, buffer);
+                    var bytesRead = ReadBlock(_stream!, buffer);
                     if (bytesRead < 512) break;
                 }
             }
@@ -939,7 +939,7 @@ public class UpdateService : IDisposable
 
     public void Dispose()
     {
-        _gzipStream?.Dispose();
+        _stream?.Dispose();
     }    }
 
 
