@@ -1662,6 +1662,11 @@ public partial class MainViewModel : ObservableObject
                         ActiveSlots = metrics.ActiveSlots;
                     });
                 }
+
+                // Retry starting the upstream log stream on each poll cycle.
+                // The stream may not start immediately if no model is loaded yet —
+                // this ensures it kicks in as soon as a model becomes ready.
+                await StartLogStreamingAsync();
             }
             catch { /* ignore polling errors */ }
 
