@@ -490,7 +490,7 @@ public partial class MainViewModel : ObservableObject
             case LlamaSwapStatus.Running:
                 StatusColor = "#A6E3A1";
                 StartMetricsPolling();
-                _ = StartLogStreamingAsync();
+                _ = StartLogStreamingAsync(); // StartLogStreamingAsync stops old stream internally
                 break;
             case LlamaSwapStatus.Error:
                 StatusColor = "#F38BA8";
@@ -1501,12 +1501,17 @@ public partial class MainViewModel : ObservableObject
     {
         if (_processManager.DetectedApiBaseUrl is null) return;
 
-        // Get the current running model from /running
-        var runningModel = await _processManager.GetRunningModelAsync();
-        if (string.IsNullOrEmpty(runningModel)) return;
+        // Get current model (non-blocking — don't fail if /running is temporarily unavailable)
+        string? runningModel = null;
+        try
+        {
+            runningModel = await _processManager.GetRunningModelAsync();
+        }
+        catch { /* model detection failed, continue anyway */ }
 
-        // Restart if model changed OR the existing stream died (IsRunning is false)
-        bool needRestart = _currentStreamingModelId != runningModel || !_logStreamService?.IsRunning == true;
+        // Restart if model changed OR the existing stream died (IsRunning is false).
+        // Start even without a model — the SSE endpoint exists as long as llama-swap is up.
+        bool needRestart = _currentStreamingModelId != runningModel || _logStreamService?.IsRunning != true;
 
         if (needRestart)
         {
@@ -1522,9 +1527,10 @@ public partial class MainViewModel : ObservableObject
 
             try
             {
-                await _logStreamService.StartAsync(runningModel, _logStreamCts.Token);
+                // Pass a placeholder if no model is loaded yet — the endpoint still works.
+                await _logStreamService.StartAsync(runningModel ?? "upstream", _logStreamCts.Token);
             }
-            catch { /* stream may fail if model not ready yet */ }
+            catch { /* stream may fail if API is temporarily unavailable */ }
         }
     }
 
