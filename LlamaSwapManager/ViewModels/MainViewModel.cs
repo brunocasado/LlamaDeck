@@ -1505,8 +1505,10 @@ public partial class MainViewModel : ObservableObject
         var runningModel = await _processManager.GetRunningModelAsync();
         if (string.IsNullOrEmpty(runningModel)) return;
 
-        // Stop existing stream if model changed
-        if (_currentStreamingModelId != runningModel)
+        // Restart if model changed OR the existing stream died (IsRunning is false)
+        bool needRestart = _currentStreamingModelId != runningModel || !_logStreamService?.IsRunning == true;
+
+        if (needRestart)
         {
             await StopLogStreamingAsync();
             _currentStreamingModelId = runningModel;

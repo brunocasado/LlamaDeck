@@ -111,6 +111,8 @@ public class LogStreamService : IDisposable
                     await Task.Delay(3000, ct);
             }
         }
+        // Stream task exited — mark as stopped so the caller can detect and restart
+        _isRunning = false;
     }
 
     private async Task FetchHistoricalLogsAsync(string url, CancellationToken ct)
