@@ -124,7 +124,6 @@ public partial class MainViewModel : ObservableObject
     private CancellationTokenSource? _metricsCts;
     private LogStreamService? _logStreamService;
     private CancellationTokenSource? _logStreamCts;
-    private string? _currentStreamingModelId;
 
     // Update subsystem
     public UpdateViewModel UpdateViewModel { get; }
@@ -1513,39 +1512,52 @@ public partial class MainViewModel : ObservableObject
     // --- Log streaming (llama-swap /logs/stream/upstream) ---
     private async Task StartLogStreamingAsync()
     {
-        if (_processManager.DetectedApiBaseUrl is null) return;
-
-        // Get current model (non-blocking — don't fail if /running is temporarily unavailable)
-        string? runningModel = null;
-        try
+        if (_logStreamService is null)
         {
-            runningModel = await _processManager.GetRunningModelAsync();
-        }
-        catch { /* model detection failed, continue anyway */ }
-
-        // Restart if model changed OR the existing stream died (IsRunning is false).
-        // Start even without a model — the SSE endpoint exists as long as llama-swap is up.
-        bool needRestart = _currentStreamingModelId != runningModel || _logStreamService?.IsRunning != true;
-
-        if (needRestart)
-        {
-            await StopLogStreamingAsync();
-            _currentStreamingModelId = runningModel;
-
+            // First start — no previous stream to stop.
             _logStreamService = new LogStreamService(
                 new HttpClient { Timeout = TimeSpan.FromSeconds(30) },
                 _processManager.DetectedApiBaseUrl!);
-
             _logStreamService.LogReceived += OnUpstreamLogReceived;
             _logStreamCts = new CancellationTokenSource();
 
             try
             {
-                // Pass a placeholder if no model is loaded yet — the endpoint still works.
-                await _logStreamService.StartAsync(runningModel ?? "upstream", _logStreamCts.Token);
+                await _logStreamService.StartAsync("upstream", _logStreamCts.Token);
             }
             catch { /* stream may fail if API is temporarily unavailable */ }
+            return;
         }
+
+        // Restart: start new stream BEFORE stopping old one — zero-gap transition.
+        var oldService = _logStreamService;
+        var oldCts = _logStreamCts;
+
+        _logStreamService = new LogStreamService(
+            new HttpClient { Timeout = TimeSpan.FromSeconds(30) },
+            _processManager.DetectedApiBaseUrl!);
+        _logStreamService.LogReceived += OnUpstreamLogReceived;
+        _logStreamCts = new CancellationTokenSource();
+
+        try
+        {
+            await _logStreamService.StartAsync("upstream", _logStreamCts.Token);
+        }
+        catch { /* stream may fail if API is temporarily unavailable */ }
+
+        // Tear down old stream in background (don't block).
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                oldService.LogReceived -= OnUpstreamLogReceived;
+                await oldService.StopAsync();
+                oldService.Dispose();
+            }
+            catch { /* ignore */ }
+            oldCts?.Cancel();
+            oldCts?.Dispose();
+        });
     }
 
     private async Task StopLogStreamingAsync()
@@ -1560,7 +1572,6 @@ public partial class MainViewModel : ObservableObject
         _logStreamCts?.Cancel();
         _logStreamCts?.Dispose();
         _logStreamCts = null;
-        _currentStreamingModelId = null;
     }
 
     private void OnUpstreamLogReceived(string line)
