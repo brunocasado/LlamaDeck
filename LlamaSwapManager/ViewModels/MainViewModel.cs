@@ -124,7 +124,6 @@ public partial class MainViewModel : ObservableObject
     private CancellationTokenSource? _metricsCts;
     private LogStreamService? _logStreamService;
     private CancellationTokenSource? _logStreamCts;
-    private string? _currentStreamingModelId;
 
     // Update subsystem
     public UpdateViewModel UpdateViewModel { get; }
@@ -1511,41 +1510,37 @@ public partial class MainViewModel : ObservableObject
     }
 
     // --- Log streaming (llama-swap /logs/stream/upstream) ---
+    // The SSE endpoint is generic (not model-specific). We keep a single persistent
+    // connection alive and only reconnect if it actually dies.
     private async Task StartLogStreamingAsync()
     {
-        if (_processManager.DetectedApiBaseUrl is null) return;
+        // If the stream is already alive, do nothing — no need to reconnect.
+        if (_logStreamService?.IsRunning == true)
+            return;
 
-        // Get current model (non-blocking — don't fail if /running is temporarily unavailable)
-        string? runningModel = null;
+        // Stream is dead or first start — create a new connection.
+        if (_logStreamService != null)
+        {
+            // Clean up dead service before starting fresh.
+            _logStreamService.LogReceived -= OnUpstreamLogReceived;
+            _logStreamService.Dispose();
+            _logStreamService = null;
+        }
+        _logStreamCts?.Cancel();
+        _logStreamCts?.Dispose();
+        _logStreamCts = null;
+
+        _logStreamService = new LogStreamService(
+            new HttpClient { Timeout = TimeSpan.FromSeconds(30) },
+            _processManager.DetectedApiBaseUrl!);
+        _logStreamService.LogReceived += OnUpstreamLogReceived;
+        _logStreamCts = new CancellationTokenSource();
+
         try
         {
-            runningModel = await _processManager.GetRunningModelAsync();
+            await _logStreamService.StartAsync("upstream", _logStreamCts.Token);
         }
-        catch { /* model detection failed, continue anyway */ }
-
-        // Restart if model changed OR the existing stream died (IsRunning is false).
-        // Start even without a model — the SSE endpoint exists as long as llama-swap is up.
-        bool needRestart = _currentStreamingModelId != runningModel || _logStreamService?.IsRunning != true;
-
-        if (needRestart)
-        {
-            await StopLogStreamingAsync();
-            _currentStreamingModelId = runningModel;
-
-            _logStreamService = new LogStreamService(
-                new HttpClient { Timeout = TimeSpan.FromSeconds(30) },
-                _processManager.DetectedApiBaseUrl!);
-
-            _logStreamService.LogReceived += OnUpstreamLogReceived;
-            _logStreamCts = new CancellationTokenSource();
-
-            try
-            {
-                // Pass a placeholder if no model is loaded yet — the endpoint still works.
-                await _logStreamService.StartAsync(runningModel ?? "upstream", _logStreamCts.Token);
-            }
-            catch { /* stream may fail if API is temporarily unavailable */ }
-        }
+        catch { /* stream may fail if API is temporarily unavailable */ }
     }
 
     private async Task StopLogStreamingAsync()
@@ -1560,7 +1555,6 @@ public partial class MainViewModel : ObservableObject
         _logStreamCts?.Cancel();
         _logStreamCts?.Dispose();
         _logStreamCts = null;
-        _currentStreamingModelId = null;
     }
 
     private void OnUpstreamLogReceived(string line)

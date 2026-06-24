@@ -51,7 +51,7 @@ public class LogStreamService : IDisposable
         _cts?.Cancel();
         if (_streamTask is not null)
         {
-            var doneTask = await Task.WhenAny(_streamTask, Task.Delay(5000));
+            var doneTask = await Task.WhenAny(_streamTask, Task.Delay(2000));
             if (doneTask == _streamTask)
             {
                 try { await _streamTask; } catch { /* stream ended */ }
