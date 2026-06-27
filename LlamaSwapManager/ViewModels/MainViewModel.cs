@@ -69,10 +69,8 @@ public partial class MainViewModel : ObservableObject
     // Logs
     [ObservableProperty] private ObservableCollection<string> _logMessages = new();
     [ObservableProperty] private string _logText = "";
-    [ObservableProperty] private string _llamaSwapLogText = "";
     [ObservableProperty] private string _upstreamLogText = "";
     private readonly Queue<string> _globalLogLines = new();
-    private readonly Queue<string> _swapLogLines = new();
     private readonly Queue<string> _upstreamLogLines = new();
     private const int MaxLogLines = 5000;
     /// <summary>
@@ -82,8 +80,6 @@ public partial class MainViewModel : ObservableObject
     // Cached compiled regex for filters
     private System.Text.RegularExpressions.Regex? _cachedUpstreamRegex;
     private string? _cachedUpstreamRegexText;
-    private System.Text.RegularExpressions.Regex? _cachedProxyRegex;
-    private string? _cachedProxyRegexText;
 
     // Models
     [ObservableProperty] private ObservableCollection<ModelEditItem> _models = new();
@@ -117,7 +113,6 @@ public partial class MainViewModel : ObservableObject
 
     // Log filtering (per-window regex)
     [ObservableProperty] private string _upstreamLogFilterText = "";
-    [ObservableProperty] private string _proxyLogFilterText = "";
 
     private MetricsService? _metricsService;
     private CancellationTokenSource? _metricsCts;
@@ -209,14 +204,11 @@ public partial class MainViewModel : ObservableObject
                  {
                      LogMessages.Clear();
                       LogText = "";
-                      LlamaSwapLogText = "";
                       UpstreamLogText = "";
                       _globalLogLines.Clear();
-                      _swapLogLines.Clear();
                       _upstreamLogLines.Clear();
                       _logStreamService?.ClearLogs();
                       UpstreamLogFilterText = "";
-                      ProxyLogFilterText = "";
                      });
         NavigateToMetricsCommand = new RelayCommand(() => CurrentView = "metrics");
         NavigateToModelsCommand = new RelayCommand(() => CurrentView = "models");
@@ -461,19 +453,11 @@ public partial class MainViewModel : ObservableObject
         // [out] = stdout from llama-swap process (upstream llama-server logs proxied through)
         // [err] = stderr from llama-swap process (llama-swap proxy logs)
         // [manager]/[ui] = Manager-internal messages (not process output)
-        // NOTE: Upstream logs come ONLY from SSE stream (LogStreamService).
-        // [out] stdout is proxy-level, NOT upstream — never mix them.
+        // [out] = proxy stdout, goes to global log only, NOT upstream panel
+        // (upstream panel is exclusively fed by LogStreamService SSE)
         if (message.StartsWith("[out] "))
         {
             // [out] = proxy stdout, goes to global log only, NOT upstream panel
-            // (upstream panel is exclusively fed by LogStreamService SSE)
-        }
-        else if (message.StartsWith("[err] "))
-        {
-            // llama-swap proxy log (stderr)
-            _swapLogLines.Enqueue(message.Substring(6)); // Strip [err] prefix
-            while (_swapLogLines.Count > MaxLogLines) _swapLogLines.Dequeue();
-            UpdateFilteredLogTexts(updateUpstream: false, updateProxy: true);
         }
         // [manager] and [ui] messages go to global log only, not to specific panels
     }
@@ -1585,10 +1569,10 @@ public partial class MainViewModel : ObservableObject
         }
         while (_upstreamLogLines.Count > MaxLogLines) _upstreamLogLines.Dequeue();
 
-        UpdateFilteredLogTexts(updateUpstream: true, updateProxy: false);
+        UpdateFilteredLogTexts(updateUpstream: true);
     }
 
-    private void UpdateFilteredLogTexts(bool updateUpstream = true, bool updateProxy = true)
+    private void UpdateFilteredLogTexts(bool updateUpstream = true)
     {
         if (updateUpstream)
         {
@@ -1620,37 +1604,6 @@ public partial class MainViewModel : ObservableObject
                 }
             }
         }
-
-        if (updateProxy)
-        {
-            // Take only the last MaxDisplayLines to keep UI string allocation bounded
-            var displayLines = _swapLogLines.Count > MaxDisplayLines
-                ? _swapLogLines.Skip(_swapLogLines.Count - MaxDisplayLines)
-                : _swapLogLines;
-
-            if (string.IsNullOrWhiteSpace(ProxyLogFilterText))
-            {
-                LlamaSwapLogText = string.Join("\n", displayLines);
-            }
-            else
-            {
-                try
-                {
-                    var regex = GetOrBuildRegex(ref _cachedProxyRegex, ref _cachedProxyRegexText, ProxyLogFilterText);
-                    var filtered = new List<string>();
-                    foreach (var line in displayLines)
-                    {
-                        if (regex.IsMatch(line))
-                            filtered.Add(line);
-                    }
-                    LlamaSwapLogText = string.Join("\n", filtered);
-                }
-                catch
-                {
-                    LlamaSwapLogText = string.Join("\n", displayLines);
-                }
-            }
-        }
     }
 
     private static Regex GetOrBuildRegex(ref Regex? cached, ref string? cachedText, string pattern)
@@ -1664,11 +1617,6 @@ public partial class MainViewModel : ObservableObject
     }
 
     partial void OnUpstreamLogFilterTextChanged(string value)
-    {
-        UpdateFilteredLogTexts();
-    }
-
-     partial void OnProxyLogFilterTextChanged(string value)
     {
         UpdateFilteredLogTexts();
     }
@@ -1709,15 +1657,26 @@ public partial class MainViewModel : ObservableObject
                     _metricsService.SetApiBaseUrl(baseUrl);
                 }
 
+                // Fetch real-time tokens/sec from /slots (lightweight, per-slot)
+                var tps = await _metricsService.GetTokensPerSecondAsync();
+
+                // Fetch full metrics less frequently for totals
                 var metrics = await _metricsService.GetMetricsAsync();
-                if (metrics != null)
+
+                if (tps != null || metrics != null)
                 {
                     Dispatcher.UIThread.Post(() =>
                     {
-                        PrefillTokens = (long)metrics.PromptTokens;
-                        DecodeTokens = (long)metrics.EvalTokens;
-                        TokensPerSecond = metrics.TokensPerSecond;
-                        ActiveSlots = metrics.ActiveSlots;
+                        // Prefer real-time /slots value; fall back to prometheus average
+                        if (tps != null)
+                            TokensPerSecond = tps.Value;
+
+                        if (metrics != null)
+                        {
+                            PrefillTokens = (long)metrics.PromptTokens;
+                            DecodeTokens = (long)metrics.EvalTokens;
+                            ActiveSlots = metrics.ActiveSlots;
+                        }
                     });
                 }
 
