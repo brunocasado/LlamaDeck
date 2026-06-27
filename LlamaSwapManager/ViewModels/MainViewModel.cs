@@ -1655,22 +1655,18 @@ public partial class MainViewModel : ObservableObject
                     _metricsService.SetApiBaseUrl(baseUrl);
                 }
 
-                // Fetch real-time tokens/sec from /slots (only valid during active generation)
+                // Fetch real-time tokens/sec from /slots (live during generation, 0 when idle)
                 var tps = await _metricsService.GetTokensPerSecondAsync();
 
-                // Fetch full metrics for totals + fallback tokens/sec
+                // Fetch full metrics for totals
                 var metrics = await _metricsService.GetMetricsAsync();
 
                 if (tps != null || metrics != null)
                 {
                     Dispatcher.UIThread.Post(() =>
                     {
-                        // Only use /slots value when actively generating (> 0).
-                        // Fall back to prometheus average which persists after generation ends.
-                        if (tps != null && tps.Value > 0)
+                        if (tps != null)
                             TokensPerSecond = tps.Value;
-                        else if (metrics != null)
-                            TokensPerSecond = metrics.TokensPerSecond;
 
                         if (metrics != null)
                         {
