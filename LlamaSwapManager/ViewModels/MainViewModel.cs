@@ -1637,9 +1637,9 @@ public partial class MainViewModel : ObservableObject
                     {
                         Dispatcher.UIThread.Post(() =>
                         {
-                            _loadedModels.Clear();
+                            LoadedModels.Clear();
                             foreach (var m in data.Running)
-                                _loadedModels.Add(m);
+                                LoadedModels.Add(m);
                         });
                     }
                 }
