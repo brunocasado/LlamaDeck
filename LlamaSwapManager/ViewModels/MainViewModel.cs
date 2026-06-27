@@ -120,7 +120,6 @@ public partial class MainViewModel : ObservableObject
     private CancellationTokenSource? _logStreamCts;
 
     // Real-time TPS extracted from upstream logs
-    private double _lastTokensPerSecond;
     private static readonly System.Text.RegularExpressions.Regex s_tpsRegex =
         new(@"n_decoded\s*=\s*\d+\s*,\s*tg\s*=\s*([\d.]+)\s*t/s",
             System.Text.RegularExpressions.RegexOptions.Compiled);
@@ -1568,7 +1567,7 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        // Extract real-time tokens/sec from upstream log lines
+        // Extract real-time tokens/sec from upstream log lines and push to UI immediately
         foreach (var line in batch)
         {
             var match = s_tpsRegex.Match(line);
@@ -1577,7 +1576,7 @@ public partial class MainViewModel : ObservableObject
                 System.Globalization.CultureInfo.InvariantCulture,
                 out var tps))
             {
-                _lastTokensPerSecond = tps;
+                TokensPerSecond = tps;
             }
         }
 
@@ -1682,11 +1681,6 @@ public partial class MainViewModel : ObservableObject
                         PrefillTokens = (long)metrics.PromptTokens;
                         DecodeTokens = (long)metrics.EvalTokens;
                         ActiveSlots = metrics.ActiveSlots;
-
-                        // Prefer real-time TPS from upstream logs, fall back to prometheus average
-                        TokensPerSecond = _lastTokensPerSecond > 0
-                            ? _lastTokensPerSecond
-                            : metrics.TokensPerSecond;
                     });
                 }
 
