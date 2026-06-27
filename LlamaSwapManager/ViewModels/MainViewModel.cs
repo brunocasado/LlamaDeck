@@ -1650,9 +1650,15 @@ public partial class MainViewModel : ObservableObject
                 // Re-detect the llama-server port on each poll. When llama-swap switches
                 // models, the upstream llama-server may move to a different port — without
                 // this the app would keep polling the stale (or null) URL.
-                _processManager.RefreshLlamaServerUrl();
+                await _processManager.RefreshLlamaServerUrlAsync();
                 var baseUrl = _processManager.LlamaServerBaseUrl ?? _processManager.DetectedApiBaseUrl;
-                if (!string.IsNullOrEmpty(baseUrl) && baseUrl != _metricsService.ApiBaseUrl)
+                if (string.IsNullOrEmpty(baseUrl))
+                {
+                    await Task.Delay(2000, ct);
+                    continue;
+                }
+
+                if (baseUrl != _metricsService.ApiBaseUrl)
                 {
                     _metricsService.SetApiBaseUrl(baseUrl);
                 }
