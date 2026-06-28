@@ -17,7 +17,8 @@ using CommunityToolkit.Mvvm.Input;
 using Avalonia.Threading;
 using LlamaSwapManager.Models;
 using LlamaSwapManager.Services;
-using OxyPlot;
+using ScottPlot;
+using ScottPlot.Plottables;
 
 namespace LlamaSwapManager.ViewModels;
 
@@ -136,13 +137,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<LoadedModelInfo> _loadedModels = new();
 
-    // Chart plot models (OxyPlot)
-    public OxyPlot.PlotModel TokensPerSecondPlotModel { get; }
-    public OxyPlot.PlotModel TokensSlotsPlotModel { get; }
-    public OxyPlot.Series.LineSeries TokensPerSecondSeries { get; }
-    public OxyPlot.Series.LineSeries PrefillSeries { get; }
-    public OxyPlot.Series.LineSeries DecodeSeries { get; }
-    public OxyPlot.Series.LineSeries ActiveSlotsSeries { get; }
+    // Chart plot models (ScottPlot)
+    public Plot? TokensPerSecondPlot { get; private set; }
+    public Plot? TokensSlotsPlot { get; private set; }
 
     // Update subsystem
     public UpdateViewModel UpdateViewModel { get; }
@@ -264,84 +261,9 @@ public partial class MainViewModel : ObservableObject
         // Detect CUDA version
         DetectCudaVersion();
 
-        // Initialize OxyPlot series (OxyPlot 2.x API)
-        TokensPerSecondSeries = new OxyPlot.Series.LineSeries
-        {
-            Title = "Tokens/sec",
-            Color = OxyColor.Parse("#FAB387"),
-            StrokeThickness = 2,
-            MarkerType = OxyPlot.MarkerType.None
-        };
-        PrefillSeries = new OxyPlot.Series.LineSeries
-        {
-            Title = "Prefill",
-            Color = OxyColor.Parse("#89B4FA"),
-            StrokeThickness = 1.5,
-            MarkerType = OxyPlot.MarkerType.None
-        };
-        DecodeSeries = new OxyPlot.Series.LineSeries
-        {
-            Title = "Decode",
-            Color = OxyColor.Parse("#A6E3A1"),
-            StrokeThickness = 1.5,
-            MarkerType = OxyPlot.MarkerType.None
-        };
-        ActiveSlotsSeries = new OxyPlot.Series.LineSeries
-        {
-            Title = "Slots",
-            Color = OxyColor.Parse("#F5C2E7"),
-            StrokeThickness = 1.5,
-            MarkerType = OxyPlot.MarkerType.None
-        };
-
-        // Initialize OxyPlot chart models (Catppuccin Mocha theme)
-        TokensPerSecondPlotModel = new OxyPlot.PlotModel
-        {
-            Background = OxyColor.Parse("#1E1E2E"),
-        };
-        TokensPerSecondPlotModel.Axes.Add(new OxyPlot.Axes.LinearAxis
-        {
-            Position = OxyPlot.Axes.AxisPosition.Bottom,
-            TextColor = OxyColor.Parse("#6C7086"),
-            AxislineColor = OxyColor.Parse("#45475A")
-        });
-        TokensPerSecondPlotModel.Axes.Add(new OxyPlot.Axes.LinearAxis
-        {
-            Position = OxyPlot.Axes.AxisPosition.Left,
-            Title = "tokens/s",
-            TextColor = OxyColor.Parse("#FAB387"),
-            AxislineColor = OxyColor.Parse("#45475A")
-        });
-        TokensPerSecondPlotModel.Series.Add(TokensPerSecondSeries);
-
-        TokensSlotsPlotModel = new OxyPlot.PlotModel
-        {
-            Background = OxyColor.Parse("#1E1E2E"),
-        };
-        TokensSlotsPlotModel.Axes.Add(new OxyPlot.Axes.LinearAxis
-        {
-            Position = OxyPlot.Axes.AxisPosition.Bottom,
-            TextColor = OxyColor.Parse("#6C7086"),
-            AxislineColor = OxyColor.Parse("#45475A")
-        });
-        TokensSlotsPlotModel.Axes.Add(new OxyPlot.Axes.LinearAxis
-        {
-            Position = OxyPlot.Axes.AxisPosition.Left,
-            Title = "tokens/s",
-            TextColor = OxyColor.Parse("#A6ADC8"),
-            AxislineColor = OxyColor.Parse("#45475A")
-        });
-        TokensSlotsPlotModel.Axes.Add(new OxyPlot.Axes.LinearAxis
-        {
-            Position = OxyPlot.Axes.AxisPosition.Right,
-            Title = "slots",
-            TextColor = OxyColor.Parse("#F5C2E7"),
-            AxislineColor = OxyColor.Parse("#45475A"),
-            Minimum = 0
-        });
-        TokensSlotsPlotModel.Series.Add(PrefillSeries);
-        TokensSlotsPlotModel.Series.Add(DecodeSeries);
-        TokensSlotsPlotModel.Series.Add(ActiveSlotsSeries);
+        // Initialize ScottPlot charts (empty)
+        TokensPerSecondPlot = new Plot();
+        TokensSlotsPlot = new Plot();
 
         Status = LlamaSwapStatus.Stopped;
         UpdateUI();
@@ -1590,33 +1512,38 @@ public partial class MainViewModel : ObservableObject
         // TPS history
         _tpsHistory.Enqueue((t, tps));
         if (_tpsHistory.Count > MaxHistoryPoints) _tpsHistory.Dequeue();
-        TokensPerSecondSeries.Points.Clear();
-        foreach (var p in _tpsHistory)
-            TokensPerSecondSeries.Points.Add(new OxyPlot.DataPoint(p.Timestamp, p.Value));
+        var tpsData = _tpsHistory.Select(p => p.Value).ToArray();
 
         // Tokens history (deltas — rate per second)
         _tokensHistory.Enqueue((t, prefill, decode));
         if (_tokensHistory.Count > MaxHistoryPoints) _tokensHistory.Dequeue();
-        PrefillSeries.Points.Clear();
-        DecodeSeries.Points.Clear();
         var arr = _tokensHistory.ToArray();
+        var prefillRates = new double[arr.Length];
+        var decodeRates = new double[arr.Length];
         for (int i = 0; i < arr.Length; i++)
         {
             var curr = arr[i];
             var prev = i > 0 ? arr[i - 1] : curr;
             var dt = curr.Timestamp - prev.Timestamp;
-            var prefillRate = dt > 0 ? (curr.Prefill - prev.Prefill) / dt : 0;
-            var decodeRate = dt > 0 ? (curr.Decode - prev.Decode) / dt : 0;
-            PrefillSeries.Points.Add(new OxyPlot.DataPoint(curr.Timestamp, prefillRate));
-            DecodeSeries.Points.Add(new OxyPlot.DataPoint(curr.Timestamp, decodeRate));
+            prefillRates[i] = dt > 0 ? (curr.Prefill - prev.Prefill) / dt : 0;
+            decodeRates[i] = dt > 0 ? (curr.Decode - prev.Decode) / dt : 0;
         }
 
         // Slots history
         _slotsHistory.Enqueue((t, slots));
         if (_slotsHistory.Count > MaxHistoryPoints) _slotsHistory.Dequeue();
-        ActiveSlotsSeries.Points.Clear();
-        foreach (var p in _slotsHistory)
-            ActiveSlotsSeries.Points.Add(new OxyPlot.DataPoint(p.Timestamp, p.Value));
+        var slotsData = _slotsHistory.Select(p => (double)p.Value).ToArray();
+
+        // Update charts — reassign entire Plot objects
+        TokensPerSecondPlot = new Plot();
+        TokensPerSecondPlot.Add.Signal(tpsData);
+        OnPropertyChanged(nameof(TokensPerSecondPlot));
+
+        TokensSlotsPlot = new Plot();
+        TokensSlotsPlot.Add.Signal(prefillRates);
+        TokensSlotsPlot.Add.Signal(decodeRates);
+        TokensSlotsPlot.Add.Signal(slotsData);
+        OnPropertyChanged(nameof(TokensSlotsPlot));
     }
 
     private void RefreshLoadedModelsAsync()
@@ -1856,10 +1783,6 @@ public partial class MainViewModel : ObservableObject
 
                     // Refresh loaded models
                     RefreshLoadedModelsAsync();
-
-                    // Invalidate charts
-                    TokensPerSecondPlotModel.InvalidatePlot(false);
-                    TokensSlotsPlotModel.InvalidatePlot(false);
                 }
 
                 // Retry starting the upstream log stream on each poll cycle.
