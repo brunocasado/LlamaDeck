@@ -618,14 +618,8 @@
           <Border Grid.Row="3" Padding="12" Background="#313244" CornerRadius="8">
             <StackPanel Spacing="8">
               <TextBlock Text="Upstream Log" FontSize="12" FontWeight="Bold" Foreground="#CDD6F4" />
-              <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="300">
-                <ItemsControl ItemsSource="{Binding UpstreamLogs}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <TextBlock Text="{Binding .}" FontFamily="monospace" FontSize="11" Foreground="#A6ADC8" />
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
+              <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <TextBox Text="{Binding UpstreamLogText}" IsReadOnly="True" AcceptsReturn="True" FontFamily="monospace" FontSize="11" Foreground="#A6ADC8" Background="Transparent" BorderThickness="0" />
               </ScrollViewer>
             </StackPanel>
           </Border>
