@@ -548,7 +548,7 @@
 
       <!-- ===================== METRICS TAB ===================== -->
       <TabItem Header="Metrics">
-        <Grid RowDefinitions="Auto,Auto,Auto,Auto" Margin="20">
+        <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="20">
           <!-- Header -->
           <Border Grid.Row="0" Padding="16" Background="#313244" CornerRadius="8" Margin="0,0,0,16">
             <StackPanel Spacing="6">
@@ -614,14 +614,40 @@
             </StackPanel>
           </Border>
 
-          <!-- Upstream Log -->
-          <Border Grid.Row="3" Padding="12" Background="#313244" CornerRadius="8">
-            <StackPanel Spacing="8">
-              <TextBlock Text="Upstream Log" FontSize="12" FontWeight="Bold" Foreground="#CDD6F4" />
-              <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <TextBox Text="{Binding UpstreamLogText}" IsReadOnly="True" AcceptsReturn="True" FontFamily="monospace" FontSize="11" Foreground="#A6ADC8" Background="Transparent" BorderThickness="0" />
-              </ScrollViewer>
-            </StackPanel>
+          <!-- Log filter + logs -->
+          <Grid Grid.Row="3" RowDefinitions="Auto,*">
+            <!-- Filter bar -->
+            <Border Grid.Row="0" Padding="10,6" Background="#1E1E2E" CornerRadius="8" Margin="0,0,0,8">
+              <Grid ColumnDefinitions="24,*,Auto" ColumnSpacing="8">
+                <TextBlock Grid.Column="0" Text="🔍" VerticalAlignment="Center" Foreground="#6C7086" FontSize="12" />
+                <TextBox Grid.Column="1" Text="{Binding UpstreamLogFilterText, UpdateSourceTrigger=PropertyChanged}"
+                         PlaceholderText="Filter upstream logs (regex)"
+                         Foreground="#CDD6F4" Background="#313244" BorderBrush="#45475A" FontSize="11" />
+                <Button Grid.Column="2" Content="✕" Command="{Binding ClearLogCommand}" Padding="6,2" FontSize="10" Foreground="#6C7086" />
+              </Grid>
+            </Border>
+
+            <!-- Log window (full width) -->
+            <Border Grid.Row="1" Padding="12" Background="#313244" CornerRadius="8">
+              <Grid RowDefinitions="Auto,*">
+                <TextBlock Grid.Row="0" Text="Upstream Logs" FontSize="12" FontWeight="Bold" Foreground="#A6E3A1" Margin="0,0,0,6" />
+                <ScrollViewer Grid.Row="1" x:Name="UpstreamLogScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                  <TextBox x:Name="UpstreamLogTextBox"
+                           Text="{Binding UpstreamLogText}"
+                           Background="#1E1E2E"
+                           Foreground="#CDD6F4"
+                           IsReadOnly="True"
+                           TextWrapping="NoWrap"
+                           FontFamily="Consolas, monospace"
+                           FontSize="11" />
+                </ScrollViewer>
+              </Grid>
+            </Border>
+          </Grid>
+
+          <!-- Footer -->
+          <Border Grid.Row="4" Padding="12,8" Background="#1E1E2E" BorderBrush="#313244" BorderThickness="0,1,0,0" Margin="0,16,0,0">
+            <TextBlock Text="Logs update in real-time. Upstream logs from llama-server via streaming API." FontSize="10" Foreground="#6C7086" />
           </Border>
         </Grid>
       </TabItem>
