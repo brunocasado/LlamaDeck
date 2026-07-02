@@ -140,7 +140,6 @@ public partial class MainViewModel : ObservableObject
     // Chart plot models (ScottPlot)
     public Plot? TokensPerSecondPlot { get; private set; }
     public Plot? TokensSlotsPlot { get; private set; }
-
     // Update subsystem
     public UpdateViewModel UpdateViewModel { get; }
 
