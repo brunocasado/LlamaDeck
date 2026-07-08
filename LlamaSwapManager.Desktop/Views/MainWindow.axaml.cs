@@ -30,6 +30,8 @@ public partial class MainWindow : Window
 
         // Intercept window closing to hide instead of exit (Tray behavior)
         Closing += OnWindowClosing;
+        Loaded += OnLoaded;
+        DataContextChanged += OnDataContextChanged;
     }
 
     private void OnWindowClosing(object? sender, WindowClosingEventArgs e)
@@ -662,35 +664,136 @@ public partial class MainWindow : Window
         return result;
     }
 
-   // --- Auto-scroll for log viewers (smart: only when at bottom) ---
-    private bool _upstreamAutoScroll = true;
-    private double _lastUpstreamOffset = 0;
+   // --- Smart stick-to-bottom for upstream log viewer ---
+    private bool _upstreamStickToBottom = true;
+    private bool _isProgrammaticUpstreamScroll;
+    private MainViewModel? _subscribedVm;
+    private const double BottomSnapThreshold = 24.0;
 
     private void OnLoaded(object? sender, RoutedEventArgs e)
     {
         if (UpstreamLogScrollViewer != null)
+        {
             UpstreamLogScrollViewer.ScrollChanged += OnUpstreamScrollChanged;
+            // Layout grows when log text expands — keep sticky bottom consistent.
+            UpstreamLogScrollViewer.LayoutUpdated += OnUpstreamLogLayoutUpdated;
+        }
+
+        SubscribeToViewModel(DataContext as MainViewModel);
+        UpdateScrollToBottomButtonVisibility();
+        if (_upstreamStickToBottom)
+            ScrollUpstreamToBottom();
     }
 
-    private void OnUpstreamScrollChanged(object? sender, RoutedEventArgs e)
+    private void OnDataContextChanged(object? sender, EventArgs e)
     {
-        var scroll = (ScrollViewer)sender!;
-        // If user scrolled down (offset increased), enable auto-scroll
-        if (scroll.Offset.Y > _lastUpstreamOffset)
+        SubscribeToViewModel(DataContext as MainViewModel);
+    }
+
+    private void SubscribeToViewModel(MainViewModel? vm)
+    {
+        if (ReferenceEquals(_subscribedVm, vm))
+            return;
+
+        if (_subscribedVm != null)
+            _subscribedVm.PropertyChanged -= OnMainViewModelPropertyChanged;
+
+        _subscribedVm = vm;
+        if (_subscribedVm != null)
+            _subscribedVm.PropertyChanged += OnMainViewModelPropertyChanged;
+    }
+
+    private void OnMainViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is not nameof(MainViewModel.UpstreamLogText))
+            return;
+
+        // New batch of log text arrived. If pinned to bottom, follow; always refresh button.
+        Dispatcher.UIThread.Post(() =>
         {
-            _upstreamAutoScroll = true;
-        }
-        // If user scrolled up (offset decreased), disable auto-scroll
-        else if (scroll.Offset.Y < _lastUpstreamOffset - 5.0)
+            if (_upstreamStickToBottom)
+                ScrollUpstreamToBottom();
+            UpdateScrollToBottomButtonVisibility();
+        }, DispatcherPriority.Background);
+    }
+
+    private void OnUpstreamLogLayoutUpdated(object? sender, EventArgs e)
+    {
+        if (_upstreamStickToBottom && !_isProgrammaticUpstreamScroll)
+            ScrollUpstreamToBottom();
+    }
+
+    private void OnUpstreamScrollChanged(object? sender, ScrollChangedEventArgs e)
+    {
+        if (sender is not ScrollViewer scroll)
+            return;
+
+        // Ignore our own scroll-to-bottom adjustments so they don't thrash the sticky flag.
+        if (_isProgrammaticUpstreamScroll)
         {
-            _upstreamAutoScroll = false;
+            UpdateScrollToBottomButtonVisibility();
+            return;
         }
 
-        _lastUpstreamOffset = scroll.Offset.Y;
+        // Stick only when the viewport is (near) the bottom.
+        _upstreamStickToBottom = IsUpstreamAtBottom(scroll);
+        UpdateScrollToBottomButtonVisibility();
 
-        if (_upstreamAutoScroll)
+        if (_upstreamStickToBottom)
+            ScrollUpstreamToBottom();
+    }
+
+    private static bool IsUpstreamAtBottom(ScrollViewer scroll)
+    {
+        var maxOffset = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
+        // No overflow → treat as "at bottom" (anchor engaged).
+        if (maxOffset <= 0.5)
+            return true;
+
+        return scroll.Offset.Y >= maxOffset - BottomSnapThreshold;
+    }
+
+    private void ScrollUpstreamToBottom()
+    {
+        if (UpstreamLogScrollViewer is null)
+            return;
+
+        _isProgrammaticUpstreamScroll = true;
+        try
         {
-            scroll.Offset = new Avalonia.Vector(scroll.Offset.X, double.MaxValue);
+            var scroll = UpstreamLogScrollViewer;
+            var maxOffset = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
+            scroll.Offset = new Vector(scroll.Offset.X, maxOffset);
+
+            if (UpstreamLogTextBox is not null && UpstreamLogTextBox.Text is { Length: > 0 } text)
+                UpstreamLogTextBox.CaretIndex = text.Length;
+
+            _upstreamStickToBottom = true;
         }
+        finally
+        {
+            // Defer clearing so cascading ScrollChanged from Offset assign is still treated as programmatic.
+            Dispatcher.UIThread.Post(() =>
+            {
+                _isProgrammaticUpstreamScroll = false;
+                UpdateScrollToBottomButtonVisibility();
+            }, DispatcherPriority.Background);
+        }
+    }
+
+    private void UpdateScrollToBottomButtonVisibility()
+    {
+        if (ScrollToBottomButton is null || UpstreamLogScrollViewer is null)
+            return;
+
+        var scroll = UpstreamLogScrollViewer;
+        var hasOverflow = scroll.Extent.Height > scroll.Viewport.Height + 1;
+        ScrollToBottomButton.IsVisible = hasOverflow && !_upstreamStickToBottom;
+    }
+
+    private void OnScrollToBottomClick(object? sender, RoutedEventArgs e)
+    {
+        _upstreamStickToBottom = true;
+        ScrollUpstreamToBottom();
     }
 }
