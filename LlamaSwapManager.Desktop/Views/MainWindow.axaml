@@ -174,29 +174,48 @@
             </Panel>
           </Grid>
 
-          <!-- EDITOR MODAL -->
+          <!-- EDITOR SHEET (~90% height) -->
           <Grid IsVisible="{Binding HasSelectedModel}" ZIndex="40">
-            <Border Background="#CC000000" PointerPressed="OnModelEditorBackdropPressed"/>
-            <Border Margin="36,24" MaxWidth="1180"
-                    Background="#12121C" BorderBrush="#2A2A3D" BorderThickness="1" CornerRadius="16"
-                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <Border Background="#B8000000" PointerPressed="OnModelEditorBackdropPressed"/>
+            <Grid RowDefinitions="*,9*">
+              <Border Grid.Row="0" Background="Transparent" PointerPressed="OnModelEditorBackdropPressed"/>
+              <Border Grid.Row="1"
+                      Background="#0F0F18" BorderBrush="#2A2A3D" BorderThickness="0,1,0,0"
+                      CornerRadius="18,18,0,0">
               <Grid RowDefinitions="Auto,*,Auto">
-                <Border Grid.Row="0" Padding="18,14" BorderBrush="#1F1F2E" BorderThickness="0,0,0,1">
+                <Border Grid.Row="0" Padding="18,10" BorderBrush="#1F1F2E" BorderThickness="0,0,0,1">
                   <DockPanel>
-                    <StackPanel Spacing="2">
+                    <Border Width="42" Height="4" CornerRadius="2" Background="#3A3A50" HorizontalAlignment="Center" DockPanel.Dock="Top" Margin="0,2,0,10"/>
+                    <StackPanel Spacing="2" VerticalAlignment="Center">
                       <TextBlock Text="EDIT MODEL" FontSize="10" FontWeight="Bold" Foreground="#585B70"/>
-                      <TextBlock Text="{Binding SelectedModel.ModelId}" FontSize="16" FontWeight="SemiBold" Foreground="#CDD6F4"/>
+                      <TextBlock Text="{Binding SelectedModel.ModelId}" FontSize="17" FontWeight="SemiBold" Foreground="#CDD6F4"/>
                     </StackPanel>
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                      <Button Content="Close" Command="{Binding CloseModelEditorCommand}" Classes="ghost" Padding="12,6"/>
-                    </StackPanel>
+                    <Button DockPanel.Dock="Right" Content="Close" Command="{Binding CloseModelEditorCommand}" Classes="ghost" Padding="12,6" VerticalAlignment="Center"/>
                   </DockPanel>
                 </Border>
-                <ScrollViewer Grid.Row="1" Padding="20" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <Grid Grid.Row="1" ColumnDefinitions="208,*">
+                  <Border Grid.Column="0" Background="#0C0C14" BorderBrush="#1A1A28" BorderThickness="0,0,1,0">
+                    <StackPanel Margin="6,12" Spacing="2">
+                      <TextBlock Text="SECTIONS" Classes="nav-section"/>
+                      <Button Command="{Binding SetModelEditorSectionCommand}" CommandParameter="essentials" Classes="nav" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="6,2" Padding="10,9">
+                        <DockPanel>
+                          <Border Classes="nav-indicator" DockPanel.Dock="Left" VerticalAlignment="Center" IsVisible="{Binding ModelEditorSection, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=essentials}"/>
+                          <TextBlock Text="Essentials" Classes="nav-label" VerticalAlignment="Center"/>
+                        </DockPanel>
+                      </Button>
+                      <Button Command="{Binding SetModelEditorSectionCommand}" CommandParameter="advanced" Classes="nav" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="6,2" Padding="10,9">
+                        <DockPanel>
+                          <Border Classes="nav-indicator" DockPanel.Dock="Left" VerticalAlignment="Center" IsVisible="{Binding ModelEditorSection, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=advanced}"/>
+                          <TextBlock Text="Advanced" Classes="nav-label" VerticalAlignment="Center"/>
+                        </DockPanel>
+                      </Button>
+                    </StackPanel>
+                  </Border>
+                <ScrollViewer Grid.Column="1" Padding="20" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                   <StackPanel Spacing="16" Margin="0,0,0,24">
 
-                    <!-- ESSENTIALS (always visible) -->
-                    <Border Classes="card" Padding="16">
+                    <!-- ESSENTIALS -->
+                    <Border Classes="card" Padding="16" IsVisible="{Binding ModelEditorSection, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=essentials}">
                       <StackPanel Spacing="14">
                         <StackPanel Spacing="2">
                           <TextBlock Text="Essentials" FontSize="14" FontWeight="SemiBold" Foreground="#CDD6F4"/>
@@ -254,7 +273,8 @@
                     </Border>
 
                     <!-- Metadata (collapsed) -->
-                    <Expander Header="Name · description · aliases · host/port" IsExpanded="False" Margin="0,4,0,0">
+                                        <StackPanel Spacing="12" IsVisible="{Binding ModelEditorSection, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=advanced}">
+<Expander Header="Name · description · aliases · host/port" IsExpanded="True" Margin="0,4,0,0">
                       <Border Classes="card" Margin="0,8,0,0" Padding="16">
                         <Grid ColumnDefinitions="160,*,160,*" RowSpacing="10" ColumnSpacing="12">
                           <Grid.RowDefinitions>
@@ -274,7 +294,7 @@
                       </Border>
                     </Expander>
 
-                    <Expander Header="Runtime · batch · threads" IsExpanded="False" Margin="0,2,0,0">
+                    <Expander Header="Runtime · batch · threads" IsExpanded="True" Margin="0,2,0,0">
                       <Border Classes="card" Margin="0,8,0,0" Padding="14">
                         <StackPanel Spacing="10">
 <StackPanel Margin="12" Spacing="12">
@@ -287,7 +307,7 @@
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Threads" FontSize="12" Foreground="#A6ADC8" VerticalAlignment="Center" />
                                 <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedModel.Threads}" PlaceholderText="-1 = auto" ToolTip.Tip="--threads: CPU generation threads." />
                               </Grid>
-                              <Expander Header="Advanced runtime / batching" IsExpanded="False">
+                              <Expander Header="Advanced runtime / batching" IsExpanded="True">
                                 <Grid Margin="0,8,0,0" ColumnDefinitions="160,*,160,*" RowSpacing="10" ColumnSpacing="12">
                                   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                                   <TextBlock Grid.Row="0" Grid.Column="0" Text="Threads Batch" FontSize="12" Foreground="#A6ADC8" VerticalAlignment="Center" />
@@ -303,7 +323,7 @@
                       </Border>
                     </Expander>
 
-                    <Expander Header="GPU · memory · devices" IsExpanded="False" Margin="0,2,0,0">
+                    <Expander Header="GPU · memory · devices" IsExpanded="True" Margin="0,2,0,0">
                       <Border Classes="card" Margin="0,8,0,0" Padding="14">
                         <StackPanel Spacing="10">
 <StackPanel Margin="12" Spacing="12">
@@ -324,7 +344,7 @@
                                   <CheckBox IsChecked="{Binding SelectedModel.NoMmap}" Content="--no-mmap" Foreground="#CDD6F4" ToolTip.Tip="Disable memory-mapped model loading." />
                                 </StackPanel>
                               </Grid>
-                              <Expander Header="Advanced GPU placement / memory" IsExpanded="False">
+                              <Expander Header="Advanced GPU placement / memory" IsExpanded="True">
                                 <Grid Margin="0,8,0,0" ColumnDefinitions="160,*,160,*" RowSpacing="10" ColumnSpacing="12">
                                   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                                   <TextBlock Grid.Row="0" Grid.Column="0" Text="Device" FontSize="12" Foreground="#A6ADC8" VerticalAlignment="Center" />
@@ -343,7 +363,7 @@
                       </Border>
                     </Expander>
 
-                    <Expander Header="KV cache" IsExpanded="False" Margin="0,2,0,0">
+                    <Expander Header="KV cache" IsExpanded="True" Margin="0,2,0,0">
                       <Border Classes="card" Margin="0,8,0,0" Padding="14">
                         <StackPanel Spacing="10">
 <StackPanel Margin="12" Spacing="12">
@@ -354,7 +374,7 @@
                                 <TextBlock Grid.Row="0" Grid.Column="2" Text="Cache Type V" FontSize="12" Foreground="#A6ADC8" VerticalAlignment="Center" />
                                 <ComboBox Grid.Row="0" Grid.Column="3" ItemsSource="{Binding CacheTypeOptions}" SelectedItem="{Binding SelectedModel.CacheTypeV}" ToolTip.Tip="--cache-type-v: KV cache V datatype." />
                               </Grid>
-                              <Expander Header="Advanced cache flags" IsExpanded="False">
+                              <Expander Header="Advanced cache flags" IsExpanded="True">
                                 <TextBlock Margin="0,8,0,0" Text="Other cache flags go in Advanced." FontSize="11" Foreground="#A6ADC8" TextWrapping="Wrap" />
                               </Expander>
                             </StackPanel>
@@ -362,7 +382,7 @@
                       </Border>
                     </Expander>
 
-                    <Expander Header="Sampling" IsExpanded="False" Margin="0,2,0,0">
+                    <Expander Header="Sampling" IsExpanded="True" Margin="0,2,0,0">
                       <Border Classes="card" Margin="0,8,0,0" Padding="14">
                         <StackPanel Spacing="10">
 <StackPanel Margin="12" Spacing="12">
@@ -379,7 +399,7 @@
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="Repeat Penalty" FontSize="12" Foreground="#A6ADC8" VerticalAlignment="Center" />
                                 <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SelectedModel.RepeatPenalty}" PlaceholderText="1.0" ToolTip.Tip="--repeat-penalty: 1.0 disables." />
                               </Grid>
-                              <Expander Header="Advanced sampling" IsExpanded="False">
+                              <Expander Header="Advanced sampling" IsExpanded="True">
                                 <StackPanel Margin="0,8,0,0" Spacing="10">
                                   <Grid ColumnDefinitions="160,*,160,*" RowSpacing="10" ColumnSpacing="12">
                                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -403,7 +423,7 @@
                       </Border>
                     </Expander>
 
-                    <Expander Header="Server · API · endpoints" IsExpanded="False" Margin="0,2,0,0">
+                    <Expander Header="Server · API · endpoints" IsExpanded="True" Margin="0,2,0,0">
                       <Border Classes="card" Margin="0,8,0,0" Padding="14">
                         <StackPanel Spacing="10">
 <StackPanel Margin="12" Spacing="12">
@@ -418,7 +438,7 @@
                                   <CheckBox IsChecked="{Binding SelectedModel.Slots}" Content="slots endpoint" Foreground="#CDD6F4" />
                                 </StackPanel>
                               </Grid>
-                              <Expander Header="Advanced endpoints / auth" IsExpanded="False">
+                              <Expander Header="Advanced endpoints / auth" IsExpanded="True">
                                 <Grid Margin="0,8,0,0" ColumnDefinitions="160,*,160,*" RowSpacing="10" ColumnSpacing="12">
                                   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                                   <TextBlock Grid.Row="0" Grid.Column="0" Text="HTTP Threads" FontSize="12" Foreground="#A6ADC8" VerticalAlignment="Center" />
@@ -438,7 +458,7 @@
                       </Border>
                     </Expander>
 
-                    <Expander Header="Chat template · reasoning format" IsExpanded="False" Margin="0,2,0,0">
+                    <Expander Header="Chat template · reasoning format" IsExpanded="True" Margin="0,2,0,0">
                       <Border Classes="card" Margin="0,8,0,0" Padding="14">
                         <StackPanel Spacing="10">
 <StackPanel Margin="12" Spacing="12">
@@ -459,7 +479,7 @@
                                           HorizontalAlignment="Stretch"
                                           ToolTip.Tip="--reasoning: off forces no thinking and MUST be explicit in cmd. Empty uses model/server default (often thinking-capable). New models default to off." />
                               </Grid>
-                              <Expander Header="Advanced chat template / reasoning" IsExpanded="False">
+                              <Expander Header="Advanced chat template / reasoning" IsExpanded="True">
                                 <Grid Margin="0,8,0,0" ColumnDefinitions="160,*" RowSpacing="10">
                                   <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -499,7 +519,7 @@
                       </Border>
                     </Expander>
 
-                    <Expander Header="Raw flags (power users)" IsExpanded="False" Margin="0,2,0,0">
+                    <Expander Header="Raw flags (power users)" IsExpanded="True" Margin="0,2,0,0">
                       <Border Classes="card" Margin="0,8,0,0" Padding="14">
                         <StackPanel Spacing="10">
 <StackPanel Margin="12" Spacing="10">
@@ -523,18 +543,21 @@
 
 
                   
+                    </StackPanel>
                   </StackPanel>
                 </ScrollViewer>
-                <Border Grid.Row="2" Padding="16,12" Background="#0F0F17" BorderBrush="#1F1F2E" BorderThickness="0,1,0,0">
+                </Grid>
+                <Border Grid.Row="2" Padding="16,12" Background="#0C0C14" BorderBrush="#1A1A28" BorderThickness="0,1,0,0">
                   <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="10">
-                    <TextBlock Text="Changes apply to config on Save." FontSize="11" Foreground="#6C7086" VerticalAlignment="Center"/>
+                    <TextBlock Text="Sheet fills most of the screen. Essentials or Advanced via left rail." FontSize="11" Foreground="#6C7086" VerticalAlignment="Center"/>
                     <Button Grid.Column="1" Content="Save" Command="{Binding SaveModelCommand}" Classes="success" Padding="16,8" MinWidth="110"/>
                     <Button Grid.Column="2" Content="Cancel" Command="{Binding CancelModelCommand}" Classes="ghost" Padding="16,8" MinWidth="110" IsVisible="{Binding IsNewModel}"/>
                     <Button Grid.Column="3" Content="Delete" Click="OnDeleteModelClick" Classes="danger" Padding="16,8" MinWidth="110"/>
                   </Grid>
                 </Border>
               </Grid>
-            </Border>
+              </Border>
+            </Grid>
           </Grid>
         </Grid>
 

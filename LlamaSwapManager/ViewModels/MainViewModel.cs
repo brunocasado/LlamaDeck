@@ -106,6 +106,7 @@ public partial class MainViewModel : ObservableObject
 
     // Metrics navigation
     [ObservableProperty] private string _currentView = "models";
+    [ObservableProperty] private string _modelEditorSection = "essentials";
     [ObservableProperty] private long _prefillTokens;
     [ObservableProperty] private long _decodeTokens;
     [ObservableProperty] private double _tokensPerSecond;
@@ -189,6 +190,7 @@ public partial class MainViewModel : ObservableObject
     public ICommand NavigateToUpdatesCommand { get; }
     public ICommand NavigateToConfigPreviewCommand { get; }
     public ICommand CloseModelEditorCommand { get; }
+    public ICommand SetModelEditorSectionCommand { get; }
 
     // CanExecute
     public bool CanStart => StartButtonEnabled;
@@ -245,6 +247,11 @@ public partial class MainViewModel : ObservableObject
         NavigateToUpdatesCommand = new RelayCommand(() => CurrentView = "updates");
         NavigateToConfigPreviewCommand = new RelayCommand(() => CurrentView = "preview");
         CloseModelEditorCommand = new RelayCommand(CloseModelEditor);
+        SetModelEditorSectionCommand = new RelayCommand<string?>(section =>
+        {
+            if (!string.IsNullOrWhiteSpace(section))
+                ModelEditorSection = section.Trim();
+        });
 
         // Auto-detect paths first
         AutoDetectPaths();
@@ -735,6 +742,7 @@ public partial class MainViewModel : ObservableObject
            SelectedModel = model;
            HasSelectedModel = true;
            IsNewModel = false;
+           ModelEditorSection = "essentials";
            UpdateSelectedModelSourceLabel();
        }
 
@@ -759,6 +767,8 @@ public partial class MainViewModel : ObservableObject
         SelectedModel = newItem;
         HasSelectedModel = true;
         IsNewModel = true;
+        ModelEditorSection = "essentials";
+        ModelEditorSection = "essentials";
         UpdateSelectedModelSourceLabel();
         EnsureMatrixModelCoverage();
         SyncEvictCostsWithCurrentVars(refreshPreview: false);
