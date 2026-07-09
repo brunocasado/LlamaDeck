@@ -768,7 +768,6 @@ public partial class MainViewModel : ObservableObject
         HasSelectedModel = true;
         IsNewModel = true;
         ModelEditorSection = "essentials";
-        ModelEditorSection = "essentials";
         UpdateSelectedModelSourceLabel();
         EnsureMatrixModelCoverage();
         SyncEvictCostsWithCurrentVars(refreshPreview: false);
