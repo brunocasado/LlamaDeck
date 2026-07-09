@@ -868,12 +868,12 @@
             <Panel Grid.Column="1" Background="#101018">
                 <ScrollViewer IsVisible="{Binding ModelEditorSection, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=essentials}"
                               VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                  <DockPanel Margin="48,24" LastChildFill="True" HorizontalAlignment="Stretch">
+                  <DockPanel Margin="64,32" LastChildFill="True" HorizontalAlignment="Stretch">
                     <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14">
 <TextBlock Text="Essentials" FontSize="18" FontWeight="SemiBold" Foreground="#CDD6F4"/>
                         <TextBlock Text="Common knobs for every model profile." FontSize="12" Foreground="#6C7086" TextWrapping="Wrap"/>
                     </StackPanel>
-<Border Classes="card" Padding="22,20" HorizontalAlignment="Stretch" MinWidth="520">
+<Border Classes="card" Padding="28,26" HorizontalAlignment="Stretch" MinWidth="520">
 
                       <StackPanel Spacing="14">
                       <Grid ColumnDefinitions="*,20,*" HorizontalAlignment="Stretch" MinWidth="520">
@@ -931,12 +931,12 @@
                 </ScrollViewer>
                 <ScrollViewer IsVisible="{Binding ModelEditorSection, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=identity}"
                               VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                  <DockPanel Margin="48,24" LastChildFill="True" HorizontalAlignment="Stretch">
+                  <DockPanel Margin="64,32" LastChildFill="True" HorizontalAlignment="Stretch">
                     <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14">
 <TextBlock Text="Identity" FontSize="18" FontWeight="SemiBold" Foreground="#CDD6F4"/>
                         <TextBlock Text="Names, aliases and network bind." FontSize="12" Foreground="#6C7086" TextWrapping="Wrap"/>
                     </StackPanel>
-<Border Classes="card" Padding="22,20" HorizontalAlignment="Stretch" MinWidth="520">
+<Border Classes="card" Padding="28,26" HorizontalAlignment="Stretch" MinWidth="520">
 
                       <StackPanel Spacing="14">
                         <StackPanel Spacing="6">
@@ -964,12 +964,12 @@
                 </ScrollViewer>
                 <ScrollViewer IsVisible="{Binding ModelEditorSection, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=runtime}"
                               VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                  <DockPanel Margin="48,24" LastChildFill="True" HorizontalAlignment="Stretch">
+                  <DockPanel Margin="64,32" LastChildFill="True" HorizontalAlignment="Stretch">
                     <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14">
 <TextBlock Text="Runtime" FontSize="18" FontWeight="SemiBold" Foreground="#CDD6F4"/>
                         <TextBlock Text="Prediction length and CPU batching." FontSize="12" Foreground="#6C7086" TextWrapping="Wrap"/>
                     </StackPanel>
-<Border Classes="card" Padding="22,20" HorizontalAlignment="Stretch" MinWidth="520">
+<Border Classes="card" Padding="28,26" HorizontalAlignment="Stretch" MinWidth="520">
 
                       <StackPanel Spacing="14">
                       <Grid ColumnDefinitions="*,20,*" HorizontalAlignment="Stretch" MinWidth="520">
@@ -1003,12 +1003,12 @@
                 </ScrollViewer>
                 <ScrollViewer IsVisible="{Binding ModelEditorSection, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=gpu}"
                               VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                  <DockPanel Margin="48,24" LastChildFill="True" HorizontalAlignment="Stretch">
+                  <DockPanel Margin="64,32" LastChildFill="True" HorizontalAlignment="Stretch">
                     <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14">
 <TextBlock Text="GPU and memory" FontSize="18" FontWeight="SemiBold" Foreground="#CDD6F4"/>
                         <TextBlock Text="Device placement and memory behavior." FontSize="12" Foreground="#6C7086" TextWrapping="Wrap"/>
                     </StackPanel>
-<Border Classes="card" Padding="22,20" HorizontalAlignment="Stretch" MinWidth="520">
+<Border Classes="card" Padding="28,26" HorizontalAlignment="Stretch" MinWidth="520">
 
                       <StackPanel Spacing="14">
                       <Grid ColumnDefinitions="*,20,*" HorizontalAlignment="Stretch" MinWidth="520">
@@ -1053,12 +1053,12 @@
                 </ScrollViewer>
                 <ScrollViewer IsVisible="{Binding ModelEditorSection, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=kv}"
                               VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                  <DockPanel Margin="48,24" LastChildFill="True" HorizontalAlignment="Stretch">
+                  <DockPanel Margin="64,32" LastChildFill="True" HorizontalAlignment="Stretch">
                     <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14">
 <TextBlock Text="KV cache" FontSize="18" FontWeight="SemiBold" Foreground="#CDD6F4"/>
                         <TextBlock Text="Key/value cache datatypes." FontSize="12" Foreground="#6C7086" TextWrapping="Wrap"/>
                     </StackPanel>
-<Border Classes="card" Padding="22,20" HorizontalAlignment="Stretch" MinWidth="520">
+<Border Classes="card" Padding="28,26" HorizontalAlignment="Stretch" MinWidth="520">
 
                       <StackPanel Spacing="14">
                       <Grid ColumnDefinitions="*,20,*" HorizontalAlignment="Stretch" MinWidth="520">
@@ -1078,12 +1078,12 @@
                 </ScrollViewer>
                 <ScrollViewer IsVisible="{Binding ModelEditorSection, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=sampling}"
                               VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                  <DockPanel Margin="48,24" LastChildFill="True" HorizontalAlignment="Stretch">
+                  <DockPanel Margin="64,32" LastChildFill="True" HorizontalAlignment="Stretch">
                     <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14">
 <TextBlock Text="Sampling" FontSize="18" FontWeight="SemiBold" Foreground="#CDD6F4"/>
                         <TextBlock Text="Generation style controls." FontSize="12" Foreground="#6C7086" TextWrapping="Wrap"/>
                     </StackPanel>
-<Border Classes="card" Padding="22,20" HorizontalAlignment="Stretch" MinWidth="520">
+<Border Classes="card" Padding="28,26" HorizontalAlignment="Stretch" MinWidth="520">
 
                       <StackPanel Spacing="14">
                       <Grid ColumnDefinitions="*,20,*" HorizontalAlignment="Stretch" MinWidth="520">
@@ -1127,12 +1127,12 @@
                 </ScrollViewer>
                 <ScrollViewer IsVisible="{Binding ModelEditorSection, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=server}"
                               VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                  <DockPanel Margin="48,24" LastChildFill="True" HorizontalAlignment="Stretch">
+                  <DockPanel Margin="64,32" LastChildFill="True" HorizontalAlignment="Stretch">
                     <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14">
 <TextBlock Text="Server and API" FontSize="18" FontWeight="SemiBold" Foreground="#CDD6F4"/>
                         <TextBlock Text="Slots, auth and endpoint toggles." FontSize="12" Foreground="#6C7086" TextWrapping="Wrap"/>
                     </StackPanel>
-<Border Classes="card" Padding="22,20" HorizontalAlignment="Stretch" MinWidth="520">
+<Border Classes="card" Padding="28,26" HorizontalAlignment="Stretch" MinWidth="520">
 
                       <StackPanel Spacing="14">
                       <Grid ColumnDefinitions="*,20,*" HorizontalAlignment="Stretch" MinWidth="520">
@@ -1169,12 +1169,12 @@
                 </ScrollViewer>
                 <ScrollViewer IsVisible="{Binding ModelEditorSection, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=chat}"
                               VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                  <DockPanel Margin="48,24" LastChildFill="True" HorizontalAlignment="Stretch">
+                  <DockPanel Margin="64,32" LastChildFill="True" HorizontalAlignment="Stretch">
                     <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14">
 <TextBlock Text="Chat" FontSize="18" FontWeight="SemiBold" Foreground="#CDD6F4"/>
                         <TextBlock Text="Templates and reasoning behavior." FontSize="12" Foreground="#6C7086" TextWrapping="Wrap"/>
                     </StackPanel>
-<Border Classes="card" Padding="22,20" HorizontalAlignment="Stretch" MinWidth="520">
+<Border Classes="card" Padding="28,26" HorizontalAlignment="Stretch" MinWidth="520">
 
                       <StackPanel Spacing="14">
                         <StackPanel Spacing="6">
@@ -1205,12 +1205,12 @@
                 </ScrollViewer>
                 <ScrollViewer IsVisible="{Binding ModelEditorSection, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=raw}"
                               VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                  <DockPanel Margin="48,24" LastChildFill="True" HorizontalAlignment="Stretch">
+                  <DockPanel Margin="64,32" LastChildFill="True" HorizontalAlignment="Stretch">
                     <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14">
 <TextBlock Text="Raw flags" FontSize="18" FontWeight="SemiBold" Foreground="#CDD6F4"/>
                         <TextBlock Text="Escape hatch for unsupported flags." FontSize="12" Foreground="#6C7086" TextWrapping="Wrap"/>
                     </StackPanel>
-<Border Classes="card" Padding="22,20" HorizontalAlignment="Stretch" MinWidth="520">
+<Border Classes="card" Padding="28,26" HorizontalAlignment="Stretch" MinWidth="520">
 
                       <StackPanel Spacing="12">
                         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
