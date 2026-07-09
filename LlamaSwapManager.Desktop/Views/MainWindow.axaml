@@ -35,20 +35,26 @@
         <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
           <Button Command="{Binding StartCommand}" Classes="success" Padding="12,7" IsEnabled="{Binding StartButtonEnabled}" ToolTip.Tip="Start llama-swap">
             <StackPanel Orientation="Horizontal" Spacing="8">
-              <TextBlock Text="▶" FontSize="12" VerticalAlignment="Center"/>
-              <TextBlock Text="Start" VerticalAlignment="Center"/>
+              <!-- Vector play icon: avoids Unicode font fallback glitches on first paint -->
+              <Path Width="11" Height="12" Stretch="Uniform" VerticalAlignment="Center"
+                    Fill="#A6E3A1" Data="M 0,0 L 0,12 L 10,6 Z"/>
+              <TextBlock Text="Start" VerticalAlignment="Center" Foreground="#A6E3A1"/>
             </StackPanel>
           </Button>
           <Button Command="{Binding StopCommand}" Classes="danger" Padding="12,7" IsEnabled="{Binding StopButtonEnabled}" ToolTip.Tip="Stop llama-swap">
             <StackPanel Orientation="Horizontal" Spacing="8">
-              <TextBlock Text="■" FontSize="11" VerticalAlignment="Center"/>
-              <TextBlock Text="Stop" VerticalAlignment="Center"/>
+              <Path Width="10" Height="10" Stretch="Uniform" VerticalAlignment="Center"
+                    Fill="#F38BA8" Data="M 0,0 H 10 V 10 H 0 Z"/>
+              <TextBlock Text="Stop" VerticalAlignment="Center" Foreground="#F38BA8"/>
             </StackPanel>
           </Button>
           <Button Command="{Binding RestartCommand}" Classes="warning" Padding="12,7" IsEnabled="{Binding RestartButtonEnabled}" ToolTip.Tip="Restart llama-swap">
             <StackPanel Orientation="Horizontal" Spacing="8">
-              <TextBlock Text="↻" FontSize="14" VerticalAlignment="Center"/>
-              <TextBlock Text="Restart" VerticalAlignment="Center"/>
+              <!-- Circular refresh arrow -->
+              <Path Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center"
+                    Fill="#F9E2AF"
+                    Data="M 6,1 A 5,5 0 1 1 1.5,4.5 L 3.2,4.5 A 3.2,3.2 0 1 0 6,2.8 L 6,4.5 L 9.2,2.2 L 6,0 Z"/>
+              <TextBlock Text="Restart" VerticalAlignment="Center" Foreground="#F9E2AF"/>
             </StackPanel>
           </Button>
         </StackPanel>
