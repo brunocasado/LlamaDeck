@@ -105,7 +105,9 @@
       <Setter Property="Foreground" Value="#CDD6F4"/>
       <Setter Property="BorderBrush" Value="#252536"/>
       <Setter Property="CornerRadius" Value="8"/>
-      <Setter Property="Padding" Value="8,6"/>
+      <Setter Property="Padding" Value="10,8"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="MinHeight" Value="36"/>
     </Style>
     <Style Selector="TabControl">
       <Setter Property="Background" Value="Transparent"/>
@@ -125,6 +127,10 @@
       <Setter Property="Foreground" Value="#CDD6F4"/>
       <Setter Property="BorderBrush" Value="#252536"/>
       <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="MinHeight" Value="36"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Padding" Value="10,6"/>
     </Style>
   </Application.Styles>
 </Application>

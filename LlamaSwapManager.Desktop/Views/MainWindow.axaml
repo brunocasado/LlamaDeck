@@ -33,15 +33,24 @@
           </StackPanel>
         </StackPanel>
         <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
-          <Border Background="#161622" CornerRadius="20" Padding="12,6" BorderBrush="#252536" BorderThickness="1">
+          <Button Command="{Binding StartCommand}" Classes="success" Padding="12,7" IsEnabled="{Binding StartButtonEnabled}" ToolTip.Tip="Start llama-swap">
             <StackPanel Orientation="Horizontal" Spacing="8">
-              <Ellipse Width="8" Height="8" Fill="{Binding StatusColor}" VerticalAlignment="Center"/>
-              <TextBlock Text="{Binding StatusText}" FontSize="12" Foreground="{Binding StatusColor}" VerticalAlignment="Center"/>
+              <TextBlock Text="▶" FontSize="12" VerticalAlignment="Center"/>
+              <TextBlock Text="Start" VerticalAlignment="Center"/>
             </StackPanel>
-          </Border>
-          <Button Content="Start" Command="{Binding StartCommand}" Classes="success" Padding="14,7" IsEnabled="{Binding StartButtonEnabled}"/>
-          <Button Content="Stop" Command="{Binding StopCommand}" Classes="danger" Padding="14,7" IsEnabled="{Binding StopButtonEnabled}"/>
-          <Button Content="Restart" Command="{Binding RestartCommand}" Classes="warning" Padding="14,7" IsEnabled="{Binding RestartButtonEnabled}"/>
+          </Button>
+          <Button Command="{Binding StopCommand}" Classes="danger" Padding="12,7" IsEnabled="{Binding StopButtonEnabled}" ToolTip.Tip="Stop llama-swap">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="■" FontSize="11" VerticalAlignment="Center"/>
+              <TextBlock Text="Stop" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+          <Button Command="{Binding RestartCommand}" Classes="warning" Padding="12,7" IsEnabled="{Binding RestartButtonEnabled}" ToolTip.Tip="Restart llama-swap">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="↻" FontSize="14" VerticalAlignment="Center"/>
+              <TextBlock Text="Restart" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
         </StackPanel>
       </DockPanel>
     </Border>
@@ -96,9 +105,12 @@
           </Button>
         </StackPanel>
         <Border DockPanel.Dock="Bottom" Padding="14" BorderBrush="#1A1A28" BorderThickness="0,1,0,0">
-          <StackPanel Spacing="4">
+          <StackPanel Spacing="6">
             <TextBlock Text="RUNTIME" FontSize="10" FontWeight="Bold" Foreground="#585B70"/>
-            <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="#A6ADC8" TextWrapping="Wrap"/>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Ellipse Width="8" Height="8" Fill="{Binding StatusColor}" VerticalAlignment="Center"/>
+              <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{Binding StatusColor}" TextWrapping="Wrap"/>
+            </StackPanel>
           </StackPanel>
         </Border>
         <Border/>
@@ -778,9 +790,8 @@
             <DockPanel LastChildFill="True">
               <Button DockPanel.Dock="Right" Command="{Binding CloseModelEditorCommand}"
                       Classes="icon-close" Width="36" Height="36" Padding="0" Margin="12,0,0,0"
-                      VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                      ToolTip.Tip="Close (Esc)">
-                <TextBlock Text="✕" FontSize="16" FontWeight="SemiBold" Foreground="#CDD6F4" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                      VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                <TextBlock Text="✕" FontSize="15" FontWeight="SemiBold" Foreground="#CDD6F4" HorizontalAlignment="Center" VerticalAlignment="Center"/>
               </Button>
               <StackPanel Spacing="2" VerticalAlignment="Center">
                 <TextBlock Text="EDIT MODEL" FontSize="10" FontWeight="Bold" Foreground="#585B70"/>

@@ -567,7 +567,7 @@ public partial class MainViewModel : ObservableObject
     private async Task ExecuteStartAsync()
     {
         await RunLifecycleCommandAsync(
-            busyText: "Status: starting...",
+            busyText: "Starting…",
             action: () => _processManager.StartAsync(),
             resultLabel: "start");
     }
@@ -575,7 +575,7 @@ public partial class MainViewModel : ObservableObject
     private async Task ExecuteStopAsync()
     {
         await RunLifecycleCommandAsync(
-            busyText: "Status: stopping...",
+            busyText: "Stopping…",
             action: () => _processManager.StopAsync(),
             resultLabel: "stop");
     }
@@ -583,7 +583,7 @@ public partial class MainViewModel : ObservableObject
     private async Task ExecuteRestartAsync()
     {
         await RunLifecycleCommandAsync(
-            busyText: "Status: restarting...",
+            busyText: "Restarting…",
             action: () => _processManager.RestartAsync(),
             resultLabel: "restart");
     }
@@ -599,6 +599,7 @@ public partial class MainViewModel : ObservableObject
         StopButtonEnabled = false;
         RestartButtonEnabled = false;
         StatusText = busyText;
+            ShowToast(busyText);
 
         try
         {
@@ -620,6 +621,7 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusText = $"Error: {ex.Message}";
+            ShowToast($"Error: {ex.Message}");
             OnLogMessage($"[ui] {resultLabel} error: {ex.Message}");
         }
         finally
@@ -628,6 +630,8 @@ public partial class MainViewModel : ObservableObject
             try
             {
                 await RefreshRuntimeStateAsync();
+                // Toast final runtime status (also mirrored in sidebar RUNTIME).
+                ShowToast(StatusText);
             }
             catch (Exception ex)
             {
@@ -641,6 +645,7 @@ public partial class MainViewModel : ObservableObject
                     StartButtonEnabled = true;
                     StopButtonEnabled = false;
                     RestartButtonEnabled = true;
+                    ShowToast(StatusText);
                 });
             }
         }
@@ -697,16 +702,14 @@ public partial class MainViewModel : ObservableObject
 
     public void ReportUiError(string message)
     {
-        StatusText = message;
-        StatusColor = "#F38BA8";
         OnLogMessage($"[ui] {message}");
+        ShowToast(message);
     }
 
     public void ReportUiInfo(string message)
     {
-        StatusText = message;
-        StatusColor = "#A6E3A1";
         OnLogMessage($"[ui] {message}");
+        ShowToast(message);
     }
 
     /// <summary>Transient toast bubble (UI-only). Prefer this over StatusText for save/confirm feedback.</summary>
@@ -742,8 +745,7 @@ public partial class MainViewModel : ObservableObject
            // If there's an unsaved new model, show warning and don't allow switching
            if (SelectedModel != null && SelectedModel.IsNew)
            {
-               StatusText = "Save or cancel the current model before selecting another one.";
-               StatusColor = "#F38BA8";
+               ShowToast("Save or cancel the current model before selecting another one.");
                return;
            }
          
@@ -793,8 +795,7 @@ public partial class MainViewModel : ObservableObject
 
         if (SelectedModel?.IsNew == true)
         {
-            StatusText = "Save or cancel the current new model before cloning another one.";
-            StatusColor = "#F38BA8";
+            ShowToast("Save or cancel the current new model before cloning another one.");
             return;
         }
 
@@ -814,7 +815,7 @@ public partial class MainViewModel : ObservableObject
         EnsureMatrixModelCoverage();
         SyncEvictCostsWithCurrentVars(refreshPreview: false);
         UpdateConfigPreviewFromCurrentState();
-        StatusText = $"Cloned {source.ModelId}. Adjust parameters, then click Save.";
+        ShowToast($"Cloned {source.ModelId}. Adjust parameters, then click Save.");
         StatusColor = "#A6E3A1";
         (AddModelCommand as RelayCommand)?.NotifyCanExecuteChanged();
     }
@@ -866,7 +867,7 @@ public partial class MainViewModel : ObservableObject
             SelectedModel = null;
             HasSelectedModel = false;
             IsNewModel = false;
-            StatusText = "New model cancelled.";
+            ShowToast("New model cancelled.");
             StatusColor = "#FAB387";
             UpdateSelectedModelSourceLabel();
             EnsureMatrixModelCoverage();
@@ -876,7 +877,7 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        StatusText = "Nothing to cancel: this model is already saved.";
+        ShowToast("Nothing to cancel: this model is already saved.");
         StatusColor = "#FAB387";
     }
 
@@ -914,16 +915,14 @@ public partial class MainViewModel : ObservableObject
 
         if (string.IsNullOrWhiteSpace(SelectedModel.ModelId))
         {
-            StatusText = "Error: Model ID is required.";
-            StatusColor = "#F38BA8";
+            ShowToast("Error: Model ID is required.");
             return;
         }
 
         var duplicate = Models.Any(m => !ReferenceEquals(m, SelectedModel) && string.Equals(m.ModelId, SelectedModel.ModelId, StringComparison.OrdinalIgnoreCase));
         if (duplicate)
         {
-            StatusText = $"Error: a model with ID {SelectedModel.ModelId} already exists.";
-            StatusColor = "#F38BA8";
+            ShowToast($"Error: a model with ID {SelectedModel.ModelId} already exists.");
             return;
         }
 
@@ -965,8 +964,7 @@ public partial class MainViewModel : ObservableObject
         SelectedModel.HfModel = "";
         IsModelPickerOpen = false;
         UpdateSelectedModelSourceLabel();
-        StatusText = "Local model selected.";
-        StatusColor = "#A6E3A1";
+        ShowToast("Local model selected.");
     }
 
     private async Task ExecuteSearchHfModelsAsync()
@@ -1015,8 +1013,7 @@ public partial class MainViewModel : ObservableObject
         HfSearchQuery = modelId;
         IsModelPickerOpen = false;
         UpdateSelectedModelSourceLabel();
-        StatusText = "Hugging Face model selected.";
-        StatusColor = "#A6E3A1";
+        ShowToast("Hugging Face model selected.");
     }
 
     /// <summary>
@@ -1046,10 +1043,9 @@ public partial class MainViewModel : ObservableObject
         HfSearchQuery = modelId;
         IsModelPickerOpen = false;
         UpdateSelectedModelSourceLabel();
-        StatusText = string.IsNullOrWhiteSpace(SelectedModel.SelectedQuantization)
+        ShowToast(string.IsNullOrWhiteSpace(SelectedModel.SelectedQuantization)
             ? "Hugging Face model selected."
-            : $"Hugging Face model selected ({SelectedModel.SelectedQuantization}).";
-        StatusColor = "#A6E3A1";
+            : $"Hugging Face model selected ({SelectedModel.SelectedQuantization}).");
     }
 
     /// <summary>Shared quant extraction used by VM (mirrors UI helper patterns).</summary>
@@ -1236,13 +1232,11 @@ public partial class MainViewModel : ObservableObject
             _configService.SaveConfig(config, configPath);
             _rawConfig = config;
             ConfigPreview = config.ToYaml();
-            StatusText = $"Matrix saved to {configPath}";
-            StatusColor = "#A6E3A1";
+            ShowToast("Matrix saved.");
         }
         catch (Exception ex)
         {
-            StatusText = $"Matrix autosave failed: {ex.Message}";
-            StatusColor = "#F38BA8";
+            ShowToast($"Matrix autosave failed: {ex.Message}");
         }
     }
 
@@ -1271,8 +1265,7 @@ public partial class MainViewModel : ObservableObject
         var configPath = !string.IsNullOrWhiteSpace(ConfigFilePath) ? ConfigFilePath : _processManager.ConfigPath;
         if (string.IsNullOrWhiteSpace(configPath))
         {
-            StatusText = "Error: config.yml path is not set.";
-            StatusColor = "#F38BA8";
+            ShowToast("Error: config.yml path is not set.");
             return;
         }
 
