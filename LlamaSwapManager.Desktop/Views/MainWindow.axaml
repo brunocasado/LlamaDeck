@@ -789,9 +789,11 @@
           <Border Grid.Row="0" Padding="20,14" BorderBrush="#1F1F2E" BorderThickness="0,0,0,1">
             <DockPanel LastChildFill="True">
               <Button DockPanel.Dock="Right" Command="{Binding CloseModelEditorCommand}"
-                      Classes="icon-close" Width="36" Height="36" Padding="0" Margin="12,0,0,0"
-                      VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                <TextBlock Text="✕" FontSize="15" FontWeight="SemiBold" Foreground="#CDD6F4" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                      Classes="icon-close" Width="32" Height="32" Margin="8,0,0,0"
+                      VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                      Background="Transparent" BorderThickness="0">
+                <TextBlock Text="✕" FontSize="18" FontWeight="Normal" Foreground="#A6ADC8"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
               </Button>
               <StackPanel Spacing="2" VerticalAlignment="Center">
                 <TextBlock Text="EDIT MODEL" FontSize="10" FontWeight="Bold" Foreground="#585B70"/>
