@@ -32,18 +32,28 @@ internal sealed class LlamaCppPlatformConfigurator
             if (!IsExecutableBinaryName(name))
                 continue;
 
-            try
-            {
-                var mode = File.GetUnixFileMode(file);
-                mode |= UnixFileMode.UserExecute |
-                        UnixFileMode.GroupExecute |
-                        UnixFileMode.OtherExecute;
-                File.SetUnixFileMode(file, mode);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                _log?.Invoke($"[llama.cpp] Permission update failed for {name}: {ex.Message}");
-            }
+            SetExecutable(file);
+        }
+    }
+
+
+    public void SetExecutable(string path)
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        try
+        {
+            var mode = File.GetUnixFileMode(path);
+            mode |= UnixFileMode.UserExecute |
+                    UnixFileMode.GroupExecute |
+                    UnixFileMode.OtherExecute;
+            File.SetUnixFileMode(path, mode);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _log?.Invoke($"Permission update failed for {Path.GetFileName(path)}: {ex.Message}");
         }
     }
 
