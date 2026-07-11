@@ -17,11 +17,11 @@ sealed class Program
         _mutex = new Mutex(true, MutexName, out var createdNew);
         if (!createdNew)
         {
-            Console.WriteLine("Llama Swap Manager is already running.");
+            Console.WriteLine("LlamaDeck is already running.");
             return;
         }
 
-        CrashLogger.Log("startup", $"LlamaSwapManager starting. LogPath={CrashLogger.LogPath}");
+        CrashLogger.Log("startup", $"LlamaDeck starting. LogPath={CrashLogger.LogPath}");
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 

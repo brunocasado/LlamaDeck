@@ -176,7 +176,7 @@ public sealed class LlamaCppDownloader : IDisposable
     {
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
         client.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3+json");
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("LlamaSwapManager");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("LlamaDeck");
 
         var token = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
         if (!string.IsNullOrWhiteSpace(token))
