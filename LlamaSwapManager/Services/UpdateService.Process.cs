@@ -1,61 +1,85 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Net.Http;
-using System.Net.Security;
-using System.Runtime.InteropServices;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace LlamaSwapManager.Services;
 
-/// <summary>
-/// Service for downloading, verifying, and installing llama-swap updates.
-/// Downloads from GitHub releases, verifies checksums, backs up the current binary,
-/// and rolls back automatically on failure.
-/// </summary>
-public partial class UpdateService : IDisposable
+public partial class UpdateService
 {
-    private async Task<bool> StopProcessAsync(CancellationToken ct)
+    private async Task<bool> StopProcessAsync(CancellationToken cancellationToken)
+    {
+        if (_processManager is not null)
         {
-            if (_processManager is not null)
+            try
+            {
+                return await _processManager.StopAsync();
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or IOException)
+            {
+                LogMessage?.Invoke($"Process manager stop failed: {ex.Message}");
+            }
+        }
+
+        var expectedPath = Path.Combine(_installDirectory, GetBinaryName());
+        var matchedAny = false;
+        foreach (var process in Process.GetProcessesByName("llama-swap"))
+        {
+            using (process)
             {
                 try
                 {
-                    return await _processManager.StopAsync();
-                }
-                catch (Exception ex)
-                {
-                    LogMessage?.Invoke($"Process manager stop failed: {ex.Message}");
-                }
-            }
-    
-            // Fallback: try to stop via SIGTERM directly
-            try
-            {
-                var processes = Process.GetProcessesByName("llama-swap");
-                foreach (var p in processes)
-                {
-    
-                    try
+                    var processPath = process.MainModule?.FileName;
+                    if (!LlamaSwapProcessManager.IsExpectedExecutable(processPath, expectedPath))
+                        continue;
+
+                    matchedAny = true;
+                    if (!process.HasExited)
                     {
-                        if (!p.HasExited)
-                        {
-                            p.Kill(false); // SIGTERM
-                            p.WaitForExit(5000);
-                        }
+                        process.Kill(entireProcessTree: true);
+                        await process.WaitForExitAsync(cancellationToken)
+                            .WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
                     }
-                    catch { }
                 }
-                return true;
-            }
-            catch
-            {
-                return false;
+                catch (Exception ex) when (
+                    ex is InvalidOperationException or
+                    System.ComponentModel.Win32Exception or
+                    NotSupportedException or
+                    TimeoutException)
+                {
+                    LogMessage?.Invoke($"Fallback stop failed for pid={process.Id}: {ex.Message}");
+                    return false;
+                }
             }
         }
+
+        return !matchedAny || !File.Exists(expectedPath) || !IsExpectedProcessRunning(expectedPath);
+    }
+
+    private static bool IsExpectedProcessRunning(string expectedPath)
+    {
+        foreach (var process in Process.GetProcessesByName("llama-swap"))
+        {
+            using (process)
+            {
+                try
+                {
+                    if (LlamaSwapProcessManager.IsExpectedExecutable(
+                            process.MainModule?.FileName,
+                            expectedPath))
+                        return true;
+                }
+                catch (Exception ex) when (
+                    ex is InvalidOperationException or
+                    System.ComponentModel.Win32Exception or
+                    NotSupportedException)
+                {
+                    // The process may have exited while being inspected.
+                }
+            }
+        }
+
+        return false;
+    }
 }

@@ -104,17 +104,7 @@ public partial class UpdateService : IDisposable
                 var extractDir = Path.Combine(tempDir, "extracted");
                 Directory.CreateDirectory(extractDir);
     
-                bool extractOk;
-                if (_osName == "windows" && archivePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-                {
-                    extractOk = ExtractZip(archivePath, extractDir);
-                }
-                else
-                {
-                    extractOk = ExtractTarGz(archivePath, extractDir);
-                }
-    
-                if (!extractOk)
+                if (!ExtractArchive(archivePath, extractDir))
                 {
                     LogMessage?.Invoke("Failed to extract archive");
                     return false;
@@ -130,16 +120,18 @@ public partial class UpdateService : IDisposable
                 // Step 7: Backup current binary
                 ProgressChanged?.Invoke(new UpdateProgress("Preparing installation...", 80));
     
-                if (File.Exists(targetExe))
+                var hadExistingBinary = File.Exists(targetExe);
+                if (hadExistingBinary)
                 {
                     try
                     {
                         File.Copy(targetExe, backupPath, overwrite: false);
                         LogMessage?.Invoke($"Backup created at {backupPath}");
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                     {
-                        LogMessage?.Invoke($"Warning: backup failed ({ex.Message}), continuing anyway");
+                        LogMessage?.Invoke($"Backup failed; update aborted: {ex.Message}");
+                        return false;
                     }
                 }
     
@@ -151,28 +143,33 @@ public partial class UpdateService : IDisposable
                     return false;
                 }
     
-                // Step 8: Replace binary
+                // Step 8: Stage and atomically replace the binary in the destination directory.
                 ProgressChanged?.Invoke(new UpdateProgress("Installing...", 85));
-    
-                if (File.Exists(targetExe))
-                    File.Delete(targetExe);
-    
-                File.Move(extractedExe, targetExe);
-    
-                // Make executable on Unix
-                SetExecutable(targetExe);
-    
-                // H1: Verify macOS codesign on extracted binary (before installation)
-                if (_osName == "darwin")
+                var stagedExe = Path.Combine(
+                    _installDirectory,
+                    $".{Path.GetFileName(targetExe)}.update-{Guid.NewGuid():N}");
+                File.Copy(extractedExe, stagedExe, overwrite: false);
+
+                try
                 {
-                    var codesignOk = VerifyCodesign(extractedExe);
-                    if (!codesignOk)
+                    _platformConfigurator.SetExecutable(stagedExe);
+                    await _platformConfigurator.RemoveQuarantineAsync(stagedExe, ct);
+
+                    if (!await _platformConfigurator.VerifyCodesignAsync(stagedExe, ct))
                     {
-                        LogMessage?.Invoke("Warning: codesign verification failed — binary may not be signed by a known developer");
-                        // Don't block — checksum was already verified, but log the warning
+                        LogMessage?.Invoke(
+                            "Warning: codesign verification failed — checksum is valid, continuing with installation");
                     }
-    
-                    RemoveQuarantineAttribute(targetExe);
+
+                    File.Move(stagedExe, targetExe, overwrite: true);
+                }
+                finally
+                {
+                    try { File.Delete(stagedExe); }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        LogMessage?.Invoke($"Warning: staged update cleanup failed ({ex.Message})");
+                    }
                 }
     
                 // Step 9: Restart process if process manager is available
@@ -196,18 +193,28 @@ public partial class UpdateService : IDisposable
     
                 return true;
             }
-            catch (Exception ex)
+            catch (OperationCanceledException)
+            {
+                LogMessage?.Invoke("Update cancelled");
+                await RollbackAsync(targetExe, backupPath, CancellationToken.None);
+                throw;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
             {
                 LogMessage?.Invoke($"Update failed: {ex.Message}");
     
                 // Rollback
-                RollbackAsync(targetExe, backupPath);
+                await RollbackAsync(targetExe, backupPath, ct);
                 return false;
             }
             finally
             {
                 // Cleanup temp files
-                try { Directory.Delete(tempDir, true); } catch { }
+                try { Directory.Delete(tempDir, true); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    LogMessage?.Invoke($"Warning: temporary update cleanup failed ({ex.Message})");
+                }
             }
         }
     

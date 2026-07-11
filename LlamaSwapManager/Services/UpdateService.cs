@@ -26,6 +26,7 @@ public partial class UpdateService : IDisposable
 
     private readonly HttpClient _httpClient;
     private readonly GitHubReleaseClient _releaseClient;
+    private readonly LlamaCppPlatformConfigurator _platformConfigurator;
     private readonly string _installDirectory;
     private readonly string _osName;
     private readonly string _arch;
@@ -70,6 +71,8 @@ public partial class UpdateService : IDisposable
             _httpClient,
             GitHubRepo,
             cacheDirectory,
+            message => LogMessage?.Invoke(message));
+        _platformConfigurator = new LlamaCppPlatformConfigurator(
             message => LogMessage?.Invoke(message));
     }
 
