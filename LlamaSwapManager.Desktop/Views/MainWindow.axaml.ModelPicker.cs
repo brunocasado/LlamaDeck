@@ -22,11 +22,18 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using LlamaSwapManager.Desktop;
 using LlamaSwapManager.ViewModels;
+using LlamaSwapManager.Services;
 
 namespace LlamaSwapManager.Views;
 
 public partial class MainWindow : Window
 {
+    private static readonly HttpClient HuggingFaceHttpClient = new()
+    {
+        Timeout = TimeSpan.FromSeconds(20)
+    };
+    private static readonly HuggingFaceModelCatalog HuggingFaceCatalog =
+        new(HuggingFaceHttpClient);
     private async void OnChooseModelClick(object? sender, RoutedEventArgs e)
         {
             if (DataContext is not MainViewModel vm || vm.SelectedModel is null)
@@ -173,6 +180,73 @@ public partial class MainWindow : Window
             };
             cancelButton.Click += (_, __) => dialog.Close();
     
+            async Task ShowRepositoryFilesAsync(string modelId)
+            {
+                contentPanel.Children.Clear();
+                contentPanel.Children.Add(new TextBlock
+                {
+                    Text = $"Loading GGUF files in {modelId}…",
+                    Foreground = muted,
+                    Margin = new Thickness(0, 8)
+                });
+                status.Text = "Listing GGUF files…";
+
+                try
+                {
+                    var files = await HuggingFaceCatalog.GetGgufFilesAsync(modelId);
+                    contentPanel.Children.Clear();
+                    if (files.Count == 0)
+                    {
+                        contentPanel.Children.Add(new TextBlock
+                        {
+                            Text = "No .gguf files found in this repository.",
+                            Foreground = muted
+                        });
+                        status.Text = "No GGUF files found.";
+                        return;
+                    }
+
+                    contentPanel.Children.Add(new TextBlock
+                    {
+                        Text = modelId,
+                        FontWeight = FontWeight.SemiBold,
+                        Foreground = text,
+                        FontSize = 14,
+                        Margin = new Thickness(0, 0, 0, 8)
+                    });
+                    contentPanel.Children.Add(new TextBlock
+                    {
+                        Text = $"{files.Count} GGUF file(s) — pick one (quant tag used when present).",
+                        Foreground = muted,
+                        FontSize = 12,
+                        Margin = new Thickness(0, 0, 0, 8)
+                    });
+
+                    foreach (var file in files)
+                    {
+                        var button = MakeListButton(file.DisplayText, text, surface, border);
+                        button.Click += (_, _) =>
+                        {
+                            vm.SetHfModelWithQuantization(modelId, file.SelectionToken);
+                            dialog.Close();
+                        };
+                        contentPanel.Children.Add(button);
+                    }
+
+                    status.Text = "Select a GGUF file.";
+                }
+                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+                {
+                    status.Text = $"Failed to list files: {ex.Message}";
+                    contentPanel.Children.Clear();
+                    contentPanel.Children.Add(new TextBlock
+                    {
+                        Text = status.Text,
+                        Foreground = Brush("#F38BA8")
+                    });
+                }
+            }
+
             async Task SearchAsync()
             {
                 contentPanel.Children.Clear();
@@ -182,151 +256,46 @@ public partial class MainWindow : Window
                     status.Text = "Type a search query first.";
                     return;
                 }
+
                 status.Text = "Searching Hugging Face…";
+                searchButton.IsEnabled = false;
                 try
                 {
-                    using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
-                    var url = $"https://huggingface.co/api/models?search={Uri.EscapeDataString(query)}&filter=gguf&limit=20&sort=downloads&direction=-1";
-                    using var stream = await http.GetStreamAsync(url);
-                    var json = await JsonDocument.ParseAsync(stream);
-                    var count = 0;
-                    foreach (var item in json.RootElement.EnumerateArray())
+                    var repositories = await HuggingFaceCatalog.SearchRepositoriesAsync(query);
+                    foreach (var modelId in repositories)
                     {
-                        if (!item.TryGetProperty("modelId", out var id)) continue;
-                        var modelId = id.GetString();
-                        if (string.IsNullOrWhiteSpace(modelId)) continue;
-                        count++;
-    
                         var button = MakeListButton(modelId, text, surface, border);
-                        button.Click += async (_, _) =>
-                        {
-                            contentPanel.Children.Clear();
-                            contentPanel.Children.Add(new TextBlock
-                            {
-                                Text = $"Loading GGUF files in {modelId}…",
-                                Foreground = muted,
-                                Margin = new Thickness(0, 8)
-                            });
-                            status.Text = "Listing GGUF files…";
-                            try
-                            {
-                                using var http2 = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-                                // recursive tree so nested GGUFs are included
-                                var treeUrl = $"https://huggingface.co/api/models/{modelId}/tree/main?recursive=1";
-                                var response = await http2.GetAsync(treeUrl);
-                                if (!response.IsSuccessStatusCode)
-                                {
-                                    // fallback non-recursive
-                                    treeUrl = $"https://huggingface.co/api/models/{modelId}/tree/main";
-                                    response = await http2.GetAsync(treeUrl);
-                                }
-                                if (!response.IsSuccessStatusCode)
-                                {
-                                    status.Text = $"Failed to list files: {response.StatusCode}";
-                                    contentPanel.Children.Clear();
-                                    contentPanel.Children.Add(new TextBlock { Text = status.Text, Foreground = Brush("#F38BA8") });
-                                    return;
-                                }
-    
-                                using var stream2 = await response.Content.ReadAsStreamAsync();
-                                var treeJson = await JsonDocument.ParseAsync(stream2);
-                                var ggufFiles = new List<(string display, string repoPath, string? quant)>();
-    
-                                foreach (var file in treeJson.RootElement.EnumerateArray())
-                                {
-                                    if (!file.TryGetProperty("path", out var pathProp)) continue;
-                                    var path = pathProp.GetString();
-                                    if (string.IsNullOrWhiteSpace(path)) continue;
-                                    if (!path.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase)) continue;
-    
-                                    var fileName = Path.GetFileName(path);
-                                    var quantLabel = ExtractQuantizationLabel(fileName);
-                                    // Always include the file — quant is optional metadata
-                                    var display = quantLabel is not null
-                                        ? $"{quantLabel}  ·  {path}"
-                                        : path;
-                                    ggufFiles.Add((display, path, quantLabel));
-                                }
-    
-                                contentPanel.Children.Clear();
-                                if (ggufFiles.Count == 0)
-                                {
-                                    contentPanel.Children.Add(new TextBlock
-                                    {
-                                        Text = "No .gguf files found in this repository.",
-                                        Foreground = muted
-                                    });
-                                    status.Text = "No GGUF files found.";
-                                    return;
-                                }
-    
-                                // Sort: known quants first (quality order), then alphabetical by path
-                                ggufFiles.Sort((a, b) =>
-                                {
-                                    var cq = CompareQuantization(a.quant ?? "", b.quant ?? "");
-                                    if (a.quant is null && b.quant is not null) return 1;
-                                    if (a.quant is not null && b.quant is null) return -1;
-                                    if (a.quant is not null && b.quant is not null)
-                                    {
-                                        var c = CompareQuantization(a.quant, b.quant);
-                                        if (c != 0) return c;
-                                    }
-                                    return string.Compare(a.repoPath, b.repoPath, StringComparison.OrdinalIgnoreCase);
-                                });
-    
-                                contentPanel.Children.Add(new TextBlock
-                                {
-                                    Text = modelId,
-                                    FontWeight = FontWeight.SemiBold,
-                                    Foreground = text,
-                                    FontSize = 14,
-                                    Margin = new Thickness(0, 0, 0, 8)
-                                });
-                                contentPanel.Children.Add(new TextBlock
-                                {
-                                    Text = $"{ggufFiles.Count} GGUF file(s) — pick one (quant tag used when present).",
-                                    Foreground = muted,
-                                    FontSize = 12,
-                                    Margin = new Thickness(0, 0, 0, 8)
-                                });
-    
-                                foreach (var (display, repoPath, quant) in ggufFiles)
-                                {
-                                    var qBtn = MakeListButton(display, text, surface, border);
-                                    qBtn.Click += (_, __) =>
-                                    {
-                                        // Prefer quant tag for -hf repo:Q4_K_M; else store repo-relative path
-                                        var token = !string.IsNullOrWhiteSpace(quant) ? quant! : repoPath;
-                                        vm.SetHfModelWithQuantization(modelId, token);
-                                        dialog.Close();
-                                    };
-                                    contentPanel.Children.Add(qBtn);
-                                }
-                                status.Text = "Select a GGUF file.";
-                            }
-                            catch (Exception ex)
-                            {
-                                status.Text = $"Failed to list files: {ex.Message}";
-                                contentPanel.Children.Clear();
-                                contentPanel.Children.Add(new TextBlock { Text = status.Text, Foreground = Brush("#F38BA8") });
-                            }
-                        };
+                        button.Click += async (_, _) => await ShowRepositoryFilesAsync(modelId);
                         contentPanel.Children.Add(button);
                     }
-    
-                    status.Text = count == 0
+
+                    status.Text = repositories.Count == 0
                         ? "No GGUF repositories found."
-                        : $"{count} repo(s). Click one to list GGUF files.";
-                    if (count == 0)
-                        contentPanel.Children.Add(new TextBlock { Text = "No GGUF repositories found.", Foreground = muted });
+                        : $"{repositories.Count} repo(s). Click one to list GGUF files.";
+                    if (repositories.Count == 0)
+                    {
+                        contentPanel.Children.Add(new TextBlock
+                        {
+                            Text = "No GGUF repositories found.",
+                            Foreground = muted
+                        });
+                    }
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
                 {
                     status.Text = $"Search failed: {ex.Message}";
-                    contentPanel.Children.Add(new TextBlock { Text = status.Text, Foreground = Brush("#F38BA8") });
+                    contentPanel.Children.Add(new TextBlock
+                    {
+                        Text = status.Text,
+                        Foreground = Brush("#F38BA8")
+                    });
+                }
+                finally
+                {
+                    searchButton.IsEnabled = true;
                 }
             }
-    
+
             searchButton.Click += async (_, _) => await SearchAsync();
             queryBox.KeyDown += async (_, ev) =>
             {
@@ -389,85 +358,4 @@ public partial class MainWindow : Window
             };
     
     
-        /// <summary>
-        /// Extract a human-readable quantization label from a GGUF filename.
-        /// E.g. "Qwen2.5-7B-Instruct-Q4_K_M.gguf" → "Q4_K_M"
-        /// </summary>
-        private static string? ExtractQuantizationLabel(string fileName)
-        {
-            var baseName = System.IO.Path.GetFileNameWithoutExtension(fileName);
-            // Common quantization patterns: Q4_K_M, Q5_K_M, Q8_0, IQ4_XS, FP16, BF16, F32, etc.
-            var quantPatterns = new[]
-            {
-                @"Q8_0", @"Q8_K", @"Q6_K", @"Q5_K_M", @"Q5_K_S", @"Q5_0", @"Q5_1",
-                @"Q4_K_M", @"Q4_K_S", @"Q4_0", @"Q4_1",
-                @"Q3_K_M", @"Q3_K_S", @"Q3_K_L",
-                @"Q2_K", @"Q2_0",
-                @"IQ4_XS", @"IQ4_NL", @"IQ3_XS", @"IQ3_S", @"IQ3_M", @"IQ3_2", @"IQ3_1",
-                @"IQ2_XS", @"IQ2_S", @"IQ2_M", @"IQ2_2", @"IQ2_1",
-                @"IQ1_S", @"IQ1_M",
-                @"FP16", @"FP8_M", @"FP8_E4M3", @"FP8_E5M2",
-                @"BF16", @"F32", @"F16"
-            };
-    
-            // Check for known patterns first (exact match)
-            foreach (var pattern in quantPatterns)
-            {
-                if (baseName.EndsWith(pattern, StringComparison.OrdinalIgnoreCase) || 
-                    baseName.Contains($"-{pattern}", StringComparison.OrdinalIgnoreCase) ||
-                    baseName.Contains($"_{pattern}", StringComparison.OrdinalIgnoreCase))
-                {
-                    return pattern;
-                }
-            }
-    
-            // Fallback: try to extract quantization from the end of the filename
-            // Pattern: looks for quantization at the end after last - or _
-            var match = System.Text.RegularExpressions.Regex.Match(baseName, @"[-_]((UD-|IQ-)?[QIq][A-Za-z]*\d[\w_]*|FP\d+[A-Z_]*|BF\d+|F\d+[A-Z]*)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            if (match.Success)
-            {
-                return match.Groups[1].Value;
-            }
-    
-            // Last resort: return the part after the last - or _ if it looks like a quantization
-            var lastPart = baseName.Split(new[] { '-', '_' }).LastOrDefault();
-            if (!string.IsNullOrWhiteSpace(lastPart) && 
-                (lastPart.Length >= 2 && 
-                 (lastPart.StartsWith("Q", StringComparison.OrdinalIgnoreCase) ||
-                  lastPart.StartsWith("IQ", StringComparison.OrdinalIgnoreCase) ||
-                  lastPart.StartsWith("FP", StringComparison.OrdinalIgnoreCase) ||
-                  lastPart.StartsWith("BF", StringComparison.OrdinalIgnoreCase) ||
-                  lastPart.StartsWith("UD", StringComparison.OrdinalIgnoreCase))))
-            {
-                return lastPart;
-            }
-    
-            return null;
-        }
-    
-        /// <summary>
-        /// Sort quantizations by preference (higher quality first).
-        /// </summary>
-        private static int CompareQuantization(string a, string b)
-        {
-            var order = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
-            {
-                { "FP8_M", 1 }, { "FP8_E4M3", 1 }, { "FP8_E5M2", 1 },
-                { "FP16", 2 }, { "BF16", 2 }, { "F16", 2 }, { "F32", 3 },
-                { "Q8_0", 4 }, { "Q8_K", 4 },
-                { "Q6_K", 5 },
-                { "Q5_K_M", 6 }, { "Q5_K_S", 6 }, { "Q5_0", 6 }, { "Q5_1", 6 },
-                { "Q4_K_M", 7 }, { "Q4_K_S", 7 }, { "Q4_0", 7 }, { "Q4_1", 7 },
-                { "Q3_K_M", 8 }, { "Q3_K_S", 8 }, { "Q3_K_L", 8 },
-                { "Q2_K", 9 }, { "Q2_0", 9 },
-                { "IQ4_XS", 10 }, { "IQ4_NL", 10 },
-                { "IQ3_XS", 11 }, { "IQ3_S", 11 }, { "IQ3_M", 11 },
-                { "IQ2_XS", 12 }, { "IQ2_S", 12 },
-                { "IQ1_S", 13 }, { "IQ1_M", 13 }
-            };
-    
-            var aScore = order.TryGetValue(a, out var va) ? va : 50;
-            var bScore = order.TryGetValue(b, out var vb) ? vb : 50;
-            return aScore.CompareTo(bScore);
-        }
 }

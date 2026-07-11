@@ -88,33 +88,41 @@ public partial class MainViewModel : ObservableObject
         }
     
     
-        private void RefreshLoadedModelsAsync()
+        private async Task RefreshLoadedModelsAsync(CancellationToken cancellationToken)
         {
             var baseUrl = _processManager.ApiBaseUrl;
-            if (string.IsNullOrEmpty(baseUrl)) return;
-    
-            _ = Task.Run(async () =>
+            if (string.IsNullOrEmpty(baseUrl))
+                return;
+
+            try
             {
-                try
+                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+                using var response = await http.GetAsync($"{baseUrl}/running", cancellationToken);
+                if (!response.IsSuccessStatusCode)
+                    return;
+
+                await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                var data = await JsonSerializer.DeserializeAsync<RunningResponse>(
+                    stream,
+                    cancellationToken: cancellationToken);
+                if (data is null)
+                    return;
+
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
-                    var response = await http.GetAsync($"{baseUrl}/running");
-                    if (response.IsSuccessStatusCode)
-                    {
-                        var json = await response.Content.ReadAsStringAsync();
-                        var data = System.Text.Json.JsonSerializer.Deserialize<RunningResponse>(json);
-                        if (data != null)
-                        {
-                            Dispatcher.UIThread.Post(() =>
-                            {
-                                LoadedModels.Clear();
-                                foreach (var m in data.Running)
-                                    LoadedModels.Add(m);
-                            });
-                        }
-                    }
-                }
-                catch { /* ignore — models refresh silently */ }
-            });
+                    LoadedModels.Clear();
+                    foreach (var model in data.Running)
+                        LoadedModels.Add(model);
+                });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+            {
+                OnLogMessage($"[ui] loaded models refresh failed: {ex.Message}");
+            }
         }
+
 }

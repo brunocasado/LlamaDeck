@@ -62,18 +62,16 @@ public partial class MainViewModel : ObservableObject
             try
             {
                 // 20s ceiling covers unload + graceful + force kill; never block buttons forever.
-                var ok = await Task.Run(async () =>
+                bool ok;
+                try
                 {
-                    try
-                    {
-                        return await action().WaitAsync(TimeSpan.FromSeconds(20));
-                    }
-                    catch (TimeoutException)
-                    {
-                        OnLogMessage($"[ui] {resultLabel} timed out after 20s");
-                        return false;
-                    }
-                });
+                    ok = await action().WaitAsync(TimeSpan.FromSeconds(20));
+                }
+                catch (TimeoutException)
+                {
+                    OnLogMessage($"[ui] {resultLabel} timed out after 20s");
+                    ok = false;
+                }
                 OnLogMessage($"[ui] {resultLabel} result: {ok}");
             }
             catch (Exception ex)
@@ -113,9 +111,12 @@ public partial class MainViewModel : ObservableObject
         {
             try
             {
-                await Task.Run(() => _processManager.RefreshPaths()).WaitAsync(TimeSpan.FromSeconds(3));
+                _processManager.RefreshPaths();
             }
-            catch { /* path refresh is best-effort */ }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                OnLogMessage($"[ui] path refresh failed: {ex.Message}");
+            }
     
             // Bound detection so outer finally of lifecycle commands can always finish.
             try
@@ -155,7 +156,20 @@ public partial class MainViewModel : ObservableObject
         {
             StatusText = "Status: refreshing...";
             OnLogMessage("[ui] refresh requested");
-            _ = RefreshRuntimeStateAsync();
+            ObserveRefreshAsync();
+        }
+
+        private async void ObserveRefreshAsync()
+        {
+            try
+            {
+                await RefreshRuntimeStateAsync();
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+            {
+                OnLogMessage($"[ui] refresh failed: {ex.Message}");
+                StatusText = "Status: refresh failed";
+            }
         }
     
         public void ReportUiError(string message)

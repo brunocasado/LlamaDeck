@@ -228,7 +228,7 @@ public partial class MainViewModel : ObservableObject
                     });
 
                     // Refresh loaded models
-                    RefreshLoadedModelsAsync();
+                    await RefreshLoadedModelsAsync(ct);
                 }
 
                 // Retry starting the upstream log stream on each poll cycle.
@@ -236,7 +236,14 @@ public partial class MainViewModel : ObservableObject
                 // this ensures it kicks in as soon as a model becomes ready.
                 await StartLogStreamingAsync();
             }
-            catch { /* ignore polling errors */ }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+            {
+                OnLogMessage($"[metrics] polling failed: {ex.Message}");
+            }
 
             await Task.Delay(2000, ct);
         }
