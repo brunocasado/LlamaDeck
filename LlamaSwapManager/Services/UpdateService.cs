@@ -172,7 +172,9 @@ public class UpdateService : IDisposable
                 return false;
             }
 
-            var version = string.IsNullOrEmpty(targetVersion) ? latest.Version : targetVersion;
+            var version = string.IsNullOrWhiteSpace(targetVersion)
+                ? latest.Version ?? "unknown"
+                : targetVersion;
             ProgressChanged?.Invoke(new UpdateProgress($"Found version {version}", 10));
 
             // Step 2: Verify disk space
@@ -533,7 +535,7 @@ public class UpdateService : IDisposable
         }
     }
 
-    private string FindExtractedBinary(string extractDir)
+    private string? FindExtractedBinary(string extractDir)
     {
         var binaryName = GetBinaryName();
         var exePattern = _osName == "windows" ? "*.exe" : "*";
