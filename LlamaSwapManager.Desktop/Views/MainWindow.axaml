@@ -532,7 +532,7 @@
         </Grid>
 
         </Panel>
-        <Panel IsVisible="{Binding CurrentView, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=settings}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ClipToBounds="True">
+        <Grid IsVisible="{Binding CurrentView, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=settings}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ClipToBounds="True">
 
         <Grid RowDefinitions="Auto,*">
           <Border Grid.Row="0" Padding="24,18" BorderBrush="#1F1F2E" BorderThickness="0,0,0,1" Background="#12121A">
@@ -663,21 +663,11 @@
               </StackPanel>
             </Border>
 
-            <!-- Info -->
-            <Border Padding="16" Background="#161622" CornerRadius="8">
-              <StackPanel Spacing="8">
-                <TextBlock Text="Tips" FontSize="13" FontWeight="Bold" Foreground="#B4BEFE" />
-                <TextBlock Text="• Matrix uses &amp; for models loaded together" FontSize="11" Foreground="#A6ADC8" />
-                <TextBlock Text="• Vars map short names (q, m, d, t, e) to full model IDs" FontSize="11" Foreground="#A6ADC8" />
-                <TextBlock Text="• Sets define named combinations" FontSize="11" Foreground="#A6ADC8" />
-                <TextBlock Text="• Evict costs control unload priority" FontSize="11" Foreground="#A6ADC8" />
-              </StackPanel>
-            </Border>
           </StackPanel>
         </ScrollViewer>
         </Grid>
 
-        </Panel>
+        </Grid>
         <Panel IsVisible="{Binding CurrentView, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=updates}">
           <Grid RowDefinitions="Auto,*">
             <Border Grid.Row="0"
