@@ -124,8 +124,8 @@
     </Border>
 
     <!-- CONTENT -->
-    <Border Grid.Row="1" Grid.Column="1" Background="#101018">
-      <Panel>
+    <Border Grid.Row="1" Grid.Column="1" Background="#101018" ClipToBounds="True">
+      <Grid>
         <Panel IsVisible="{Binding CurrentView, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=models}">
 
         <Grid>
@@ -532,7 +532,7 @@
         </Grid>
 
         </Panel>
-        <Panel IsVisible="{Binding CurrentView, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=settings}">
+        <Panel IsVisible="{Binding CurrentView, Converter={x:Static conv:StringEqualsConverter.Instance}, ConverterParameter=settings}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ClipToBounds="True">
 
         <Grid RowDefinitions="Auto,*">
           <Border Grid.Row="0" Padding="24,18" BorderBrush="#1F1F2E" BorderThickness="0,0,0,1" Background="#12121A">
@@ -541,7 +541,7 @@
               <TextBlock Text="Paths, GPU backend and global runtime options." FontSize="12" Foreground="#6C7086" TextWrapping="Wrap"/>
             </StackPanel>
           </Border>
-          <ScrollViewer Grid.Row="1" Padding="24,16,24,32" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <ScrollViewer Grid.Row="1" Padding="24,16,24,32" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
           <StackPanel Spacing="16" Margin="0,0,0,40">
             <!-- Paths -->
             <Border Padding="16" Background="#161622" CornerRadius="8">
@@ -716,19 +716,19 @@
                         CornerRadius="12">
                   <Grid RowDefinitions="Auto,Auto" RowSpacing="16">
                     <Grid Grid.Row="0"
-                          ColumnDefinitions="112,*,260"
+                          ColumnDefinitions="100,*,260"
                           ColumnSpacing="20">
                       <Border Grid.Column="0"
-                              Width="104"
-                              Height="104"
+                              Width="92"
+                              Height="92"
                               CornerRadius="18"
                               Background="#25203A"
                               BorderBrush="#4A3C73"
                               BorderThickness="1"
                               VerticalAlignment="Top">
                         <Image Source="avares://LlamaSwapManager.Desktop/Assets/llama.png"
-                               Width="78"
-                               Height="78"
+                               Width="64"
+                               Height="64"
                                Stretch="Uniform"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"/>
@@ -767,8 +767,8 @@
 
                         <Grid ColumnDefinitions="Auto,52,Auto" ColumnSpacing="12">
                           <StackPanel Grid.Column="0" Spacing="3">
-                            <TextBlock Text="CURRENT VERSION"
-                                       FontSize="10"
+                            <TextBlock Text="Current"
+                                       FontSize="11"
                                        FontWeight="Bold"
                                        Foreground="#6C7086"/>
                             <TextBlock Text="{Binding LlamaDeckCurrentVersion}"
@@ -784,8 +784,8 @@
                                      VerticalAlignment="Bottom"
                                      Margin="0,0,0,2"/>
                           <StackPanel Grid.Column="2" Spacing="3">
-                            <TextBlock Text="LATEST VERSION"
-                                       FontSize="10"
+                            <TextBlock Text="Latest"
+                                       FontSize="11"
                                        FontWeight="Bold"
                                        Foreground="#6C7086"/>
                             <TextBlock Text="{Binding LlamaDeckLatestVersion}"
@@ -818,7 +818,20 @@
                                   HorizontalContentAlignment="Center"
                                   IsEnabled="{Binding LlamaDeckUpdateButtonEnabled}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                              <TextBlock Text="↓" FontSize="13" Width="16" TextAlignment="Center" VerticalAlignment="Center"/>
+                              <Viewbox Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center">
+                                <Grid Width="24" Height="24">
+                                  <Path Data="M12,3 L12,15 M7,10 L12,15 L17,10"
+                                        Stroke="#CDD6F4"
+                                        StrokeThickness="1.8"
+                                        StrokeLineCap="Round"
+                                        StrokeJoin="Round"/>
+                                  <Path Data="M5,20 L19,20 L19,17 M5,20 L5,17"
+                                        Stroke="#CDD6F4"
+                                        StrokeThickness="1.8"
+                                        StrokeLineCap="Round"
+                                        StrokeJoin="Round"/>
+                                </Grid>
+                              </Viewbox>
                               <TextBlock Text="Update now" FontWeight="SemiBold" VerticalAlignment="Center"/>
                             </StackPanel>
                           </Button>
@@ -828,7 +841,20 @@
                                   HorizontalContentAlignment="Center"
                                   IsEnabled="{Binding LlamaDeckCheckButtonEnabled}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                              <TextBlock Text="↻" FontSize="13" Width="16" TextAlignment="Center" VerticalAlignment="Center"/>
+                              <Viewbox Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center">
+                                <Grid Width="24" Height="24">
+                                  <Path Data="M19,8 A8,8 0 1 0 20,14"
+                                        Stroke="#CDD6F4"
+                                        StrokeThickness="1.8"
+                                        StrokeLineCap="Round"
+                                        Fill="Transparent"/>
+                                  <Path Data="M19,3 L19,8 L14,8"
+                                        Stroke="#CDD6F4"
+                                        StrokeThickness="1.8"
+                                        StrokeLineCap="Round"
+                                        StrokeJoin="Round"/>
+                                </Grid>
+                              </Viewbox>
                               <TextBlock Text="Check again" VerticalAlignment="Center"/>
                             </StackPanel>
                           </Button>
@@ -961,7 +987,20 @@
                                 HorizontalContentAlignment="Center"
                                 IsEnabled="{Binding LlamaCppCheckButtonEnabled}">
                           <StackPanel Orientation="Horizontal" Spacing="7">
-                            <TextBlock Text="↻" FontSize="13" Width="16" TextAlignment="Center" VerticalAlignment="Center"/>
+                            <Viewbox Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center">
+                                <Grid Width="24" Height="24">
+                                  <Path Data="M19,8 A8,8 0 1 0 20,14"
+                                        Stroke="#CDD6F4"
+                                        StrokeThickness="1.8"
+                                        StrokeLineCap="Round"
+                                        Fill="Transparent"/>
+                                  <Path Data="M19,3 L19,8 L14,8"
+                                        Stroke="#CDD6F4"
+                                        StrokeThickness="1.8"
+                                        StrokeLineCap="Round"
+                                        StrokeJoin="Round"/>
+                                </Grid>
+                              </Viewbox>
                             <TextBlock Text="Check"/>
                           </StackPanel>
                         </Button>
@@ -972,7 +1011,20 @@
                                 HorizontalContentAlignment="Center"
                                 IsEnabled="{Binding LlamaCppUpdateButtonEnabled}">
                           <StackPanel Orientation="Horizontal" Spacing="7">
-                            <TextBlock Text="↓" FontSize="13" Width="16" TextAlignment="Center" VerticalAlignment="Center"/>
+                            <Viewbox Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center">
+                                <Grid Width="24" Height="24">
+                                  <Path Data="M12,3 L12,15 M7,10 L12,15 L17,10"
+                                        Stroke="#CDD6F4"
+                                        StrokeThickness="1.8"
+                                        StrokeLineCap="Round"
+                                        StrokeJoin="Round"/>
+                                  <Path Data="M5,20 L19,20 L19,17 M5,20 L5,17"
+                                        Stroke="#CDD6F4"
+                                        StrokeThickness="1.8"
+                                        StrokeLineCap="Round"
+                                        StrokeJoin="Round"/>
+                                </Grid>
+                              </Viewbox>
                             <TextBlock Text="Update"/>
                           </StackPanel>
                         </Button>
@@ -1070,7 +1122,20 @@
                                 HorizontalContentAlignment="Center"
                                 IsEnabled="{Binding CheckButtonEnabled}">
                           <StackPanel Orientation="Horizontal" Spacing="7">
-                            <TextBlock Text="↻" FontSize="13" Width="16" TextAlignment="Center" VerticalAlignment="Center"/>
+                            <Viewbox Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center">
+                                <Grid Width="24" Height="24">
+                                  <Path Data="M19,8 A8,8 0 1 0 20,14"
+                                        Stroke="#CDD6F4"
+                                        StrokeThickness="1.8"
+                                        StrokeLineCap="Round"
+                                        Fill="Transparent"/>
+                                  <Path Data="M19,3 L19,8 L14,8"
+                                        Stroke="#CDD6F4"
+                                        StrokeThickness="1.8"
+                                        StrokeLineCap="Round"
+                                        StrokeJoin="Round"/>
+                                </Grid>
+                              </Viewbox>
                             <TextBlock Text="Check"/>
                           </StackPanel>
                         </Button>
@@ -1081,7 +1146,20 @@
                                 HorizontalContentAlignment="Center"
                                 IsEnabled="{Binding UpdateButtonEnabled}">
                           <StackPanel Orientation="Horizontal" Spacing="7">
-                            <TextBlock Text="↓" FontSize="13" Width="16" TextAlignment="Center" VerticalAlignment="Center"/>
+                            <Viewbox Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center">
+                                <Grid Width="24" Height="24">
+                                  <Path Data="M12,3 L12,15 M7,10 L12,15 L17,10"
+                                        Stroke="#CDD6F4"
+                                        StrokeThickness="1.8"
+                                        StrokeLineCap="Round"
+                                        StrokeJoin="Round"/>
+                                  <Path Data="M5,20 L19,20 L19,17 M5,20 L5,17"
+                                        Stroke="#CDD6F4"
+                                        StrokeThickness="1.8"
+                                        StrokeLineCap="Round"
+                                        StrokeJoin="Round"/>
+                                </Grid>
+                              </Viewbox>
                             <TextBlock Text="Update"/>
                           </StackPanel>
                         </Button>
@@ -1094,7 +1172,7 @@
             </ScrollViewer>
           </Grid>
         </Panel>
-      </Panel>
+      </Grid>
     </Border>
   
     
