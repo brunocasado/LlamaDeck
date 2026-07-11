@@ -23,12 +23,6 @@ Define which models can remain loaded together and control their eviction order 
 
 ![LlamaDeck matrix editor](docs/images/llamadeck-matrix.png)
 
-## Configuration preview
-
-Review the final `llama-swap` configuration before writing it to disk.
-
-![LlamaDeck configuration preview](docs/images/llamadeck-config-preview.png)
-
 ## Requirements
 
 - .NET 9 SDK when building from source.
