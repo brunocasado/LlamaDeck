@@ -23,6 +23,12 @@ Define which models can remain loaded together and control their eviction order 
 
 ![LlamaDeck matrix editor](docs/images/llamadeck-matrix-v2.png)
 
+## Third-party software
+
+LlamaDeck does **not** bundle, redistribute, or host `llama.cpp`, `llama-swap`, GGUF models, or model weights.
+
+When LlamaDeck downloads or updates a compatible runtime, it retrieves the files from the upstream project's release source. Those projects and files remain governed by their own licenses, terms, and distribution policies. LlamaDeck is an independent project and is not affiliated with or endorsed by the `llama.cpp` or `llama-swap` maintainers.
+
 ## Requirements
 
 - .NET 9 SDK when building from source.
@@ -59,3 +65,7 @@ LlamaDeck is built with Avalonia and targets Windows, macOS, and Linux. Runtime 
 ## Project status
 
 LlamaDeck is under active development. The public product name has changed from **LlamaSwapManager** to **LlamaDeck**; internal project and namespace names remain unchanged for compatibility and will be migrated separately if needed.
+
+## License
+
+LlamaDeck is licensed under the [MIT License](LICENSE). This license applies only to the LlamaDeck source code and does not grant rights to third-party runtimes, models, trademarks, or other externally maintained assets.
