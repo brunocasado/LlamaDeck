@@ -29,7 +29,7 @@ public class VersionChecker : IDisposable
             DefaultRequestHeaders =
             {
                 { "Accept", "application/vnd.github.v3+json" },
-                { "User-Agent", "LlamaSwapManager" }
+                { "User-Agent", "LlamaDeck" }
             }
         };
     }

@@ -1,32 +1,41 @@
-# LlamaSwapManager
+# LlamaDeck
 
-A cross-platform Avalonia desktop UI for managing `llama-swap` and `llama.cpp` `llama-server` runtimes.
+A desktop control center for `llama-swap`, `llama.cpp`, and local GGUF models.
 
-## Features
+LlamaDeck gives you one place to configure model profiles, manage the local runtime, build loading combinations, inspect generated configuration, and monitor what is running.
 
-- Start, stop, restart, and refresh `llama-swap` from a desktop UI.
-- Detect existing `llama-swap` and `llama-server` processes.
-- Graceful stop flow: unload models, send SIGTERM/taskkill, then force-kill only as fallback.
-- Edit `llama-swap` `config.yml` visually.
-- Configure multiple model runtimes with local GGUF files or Hugging Face GGUF repositories.
-- Guided `llama-server` parameter editor split by category:
-  - Runtime
-  - GPU / Memory
-  - KV / Cache
-  - Sampling
-  - Server / API
-  - Chat / Reasoning
-  - Advanced raw flags
-- Matrix configuration builder for model combinations.
-- Config preview and logs split by source.
+![LlamaDeck models dashboard](docs/images/llamadeck-main.png)
+
+## What it does
+
+- Start, stop, restart, and inspect the local `llama-swap` runtime.
+- Install and update compatible `llama.cpp` builds.
+- Create model profiles using local GGUF files or Hugging Face repositories.
+- Configure common `llama-server` runtime, GPU, cache, sampling, server, and reasoning options.
+- Build model-loading combinations and eviction priorities visually.
+- Preview and save the generated `config.yml`.
+- View runtime metrics, loaded models, and application logs.
+- Check for LlamaDeck, `llama-swap`, and `llama.cpp` updates.
+
+## Model combinations
+
+Define which models can remain loaded together and control their eviction order without editing YAML manually.
+
+![LlamaDeck matrix editor](docs/images/llamadeck-matrix.png)
+
+## Configuration preview
+
+Review the final `llama-swap` configuration before writing it to disk.
+
+![LlamaDeck configuration preview](docs/images/llamadeck-config-preview.png)
 
 ## Requirements
 
-- .NET 9 SDK
-- `llama-swap`
-- `llama.cpp` `llama-server`
+- .NET 9 SDK when building from source.
+- A supported `llama-swap` binary.
+- A compatible `llama.cpp` `llama-server` build.
 
-Expected default paths:
+Default locations:
 
 ```text
 ~/.llama-swap/llama-swap
@@ -34,20 +43,25 @@ Expected default paths:
 ~/.llama/llama-server
 ```
 
-Windows also supports `llama-swap.exe` via app folder, `~/.llama-swap`, or PATH.
+On Windows, LlamaDeck also detects `llama-swap.exe` in the application directory, `~/.llama-swap`, or `PATH`.
 
-## Run
+## Run from source
 
 ```bash
 dotnet run --project LlamaSwapManager.Desktop
 ```
 
-## Build
+## Build and test
 
 ```bash
 dotnet build
+dotnet test Tests/LlamaSwapManager.Tests/LlamaSwapManager.Tests.csproj
 ```
 
-## Notes
+## Platform support
 
-This app writes `llama-swap` configuration files only when you explicitly save from the UI. It does not install models or binaries automatically.
+LlamaDeck is built with Avalonia and targets Windows, macOS, and Linux. Runtime installation and process behavior can vary by operating system, so platform-specific testing is welcome.
+
+## Project status
+
+LlamaDeck is under active development. The public product name has changed from **LlamaSwapManager** to **LlamaDeck**; internal project and namespace names remain unchanged for compatibility and will be migrated separately if needed.

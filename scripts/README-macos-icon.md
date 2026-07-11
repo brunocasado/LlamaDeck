@@ -13,7 +13,7 @@ cd ~/projects/LlamaSwapManager
 bash scripts/package-macos.sh
 ```
 
-This creates `./publish/LlamaSwapManager.app` with:
+This creates `./publish/LlamaDeck.app` with:
 - `Contents/Info.plist` containing `CFBundleIconFile = icon`
 - `Contents/Resources/icon.icns` (16x16 through 1024x1024)
 - All DLLs and dependencies in `Contents/MacOS/`
@@ -21,7 +21,7 @@ This creates `./publish/LlamaSwapManager.app` with:
 Then open:
 
 ```bash
-open ./publish/LlamaSwapManager.app
+open ./publish/LlamaDeck.app
 ```
 
 ### Option 2: Manual publish
@@ -36,7 +36,7 @@ dotnet publish LlamaSwapManager.Desktop/LlamaSwapManager.Desktop.csproj \
 
 ## What works without the .app bundle
 
-| Feature | `dotnet run` | `LlamaSwapManager.app` |
+| Feature | `dotnet run` | `LlamaDeck.app` |
 |---|---|---|
 | Window opens | ✅ | ✅ |
 | Tray icon | ✅ | ✅ |

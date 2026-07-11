@@ -80,7 +80,7 @@ internal static class CrashLogger
         {
             var window = new Window
             {
-                Title = "Llama Swap Manager error",
+                Title = "LlamaDeck error",
                 Width = 760,
                 Height = 420,
                 WindowStartupLocation = WindowStartupLocation.CenterScreen,

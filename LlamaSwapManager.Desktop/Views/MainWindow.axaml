@@ -5,7 +5,7 @@
         xmlns:conv="using:LlamaSwapManager.Converters"
         x:Class="LlamaSwapManager.Views.MainWindow"
         x:DataType="vm:MainViewModel"
-        Title="Llama Swap Manager"
+        Title="LlamaDeck"
         Icon="avares://LlamaSwapManager.Desktop/Assets/llama.ico"
         Width="1320"
         Height="860"

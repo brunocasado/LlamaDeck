@@ -127,7 +127,7 @@ public partial class App : Application
             _trayIcon = new TrayIcon
             {
                 Icon = icon,
-                ToolTipText = "LlamaSwapManager",
+                ToolTipText = "LlamaDeck",
                 Menu = new NativeMenu
                 {
                     Items =

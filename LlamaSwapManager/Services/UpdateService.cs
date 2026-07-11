@@ -60,7 +60,7 @@ public partial class UpdateService : IDisposable
 
         _httpClient = CreateSecureHttpClient();
         _httpClient.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3+json");
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("LlamaSwapManager/1.0");
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("LlamaDeck/1.0");
 
         var cacheDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
