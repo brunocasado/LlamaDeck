@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using LlamaSwapManager.Services;
 
 namespace LlamaSwapManager.Tests;
@@ -11,6 +12,10 @@ public sealed class LlamaCppServicesTests
     [InlineData("version: 9553 (9e3b928fd)", "b9553")]
     [InlineData("build (9e3b928fd)", "b9e3b9")]
     [InlineData("unrecognized output", null)]
+    // New format (b10442+): "version: 0.1.0-dev (build NNNN, commit HASH)"
+    [InlineData("version: 0.1.0-dev (build 10442, commit 9b0a2ce85)", "b10442")]
+    [InlineData("version: 0.1.0-dev (build 10448, commit ad1de39e0)", "b10448")]
+    [InlineData("version: 0.1.0-dev (build 9851, commit abc1234)\nbuilt with AppleClang", "b9851")]
     public void VersionDetector_ParsesSupportedFormats(string output, string? expected)
     {
         Assert.Equal(expected, LlamaCppVersionDetector.ParseVersion(output));
@@ -110,6 +115,44 @@ public sealed class LlamaCppServicesTests
 
         Assert.NotNull(selected);
         Assert.Equal("12.4", selected.CudaVersion);
+    }
+
+    [Fact]
+    public void AssetSelector_ParsesRealGitHubCudaAssets()
+    {
+        // Real asset names from ggml-org/llama.cpp release b10442
+        var json = """
+        {
+          "assets": [
+            { "name": "cudart-llama-bin-win-cuda-12.4-x64.zip", "browser_download_url": "u", "size": 1, "digest": "" },
+            { "name": "cudart-llama-bin-win-cuda-13.3-x64.zip", "browser_download_url": "u", "size": 1, "digest": "" },
+            { "name": "llama-b10442-bin-win-cpu-x64.zip", "browser_download_url": "u", "size": 1, "digest": "" },
+            { "name": "llama-b10442-bin-win-cuda-12.4-x64.zip", "browser_download_url": "u", "size": 1, "digest": "" },
+            { "name": "llama-b10442-bin-win-cuda-13.3-x64.zip", "browser_download_url": "u", "size": 1, "digest": "" },
+            { "name": "llama-b10442-bin-win-vulkan-x64.zip", "browser_download_url": "u", "size": 1, "digest": "" }
+          ]
+        }
+        """;
+        using var doc = JsonDocument.Parse(json);
+        var selector = new LlamaCppAssetSelector();
+        var parsed = selector.ParseCudaAssets(doc.RootElement);
+
+        var builds = parsed.Where(a => a.AssetType == LlamaCppAssetSelector.CudaAssetType.LlamaBuild).ToList();
+        var cudarts = parsed.Where(a => a.AssetType == LlamaCppAssetSelector.CudaAssetType.Cudart).ToList();
+
+        // Both CUDA llama builds detected with correct versions
+        Assert.Equal(2, builds.Count);
+        Assert.Contains(builds, a => a.CudaVersion == "12.4" && a.Name.Contains("cuda-12.4"));
+        Assert.Contains(builds, a => a.CudaVersion == "13.3" && a.Name.Contains("cuda-13.3"));
+
+        // All 2 cudart runtimes detected with correct versions
+        Assert.Equal(2, cudarts.Count);
+        Assert.Contains(cudarts, a => a.CudaVersion == "12.4");
+        Assert.Contains(cudarts, a => a.CudaVersion == "13.3");
+
+        // CPU and Vulkan assets are NOT classified as CUDA
+        Assert.DoesNotContain(parsed, a => a.Name.Contains("cpu"));
+        Assert.DoesNotContain(parsed, a => a.Name.Contains("vulkan"));
     }
 
     [Fact]

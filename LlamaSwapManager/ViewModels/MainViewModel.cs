@@ -121,8 +121,9 @@ public partial class MainViewModel : ObservableObject
     private CancellationTokenSource? _logStreamCts;
 
     // Real-time TPS extracted from upstream logs
+    // Supports both old format (n_decoded) and new format (n_gen) from llama.cpp b10442+
     private static readonly System.Text.RegularExpressions.Regex s_tpsRegex =
-        new(@"n_decoded\s*=\s*\d+\s*,\s*tg\s*=\s*([\d.]+)\s*t/s",
+        new(@"(?:n_decoded|n_gen)\s*=\s*\d+\s*,\s*tg\s*=\s*([\d.]+)\s*t/s",
             System.Text.RegularExpressions.RegexOptions.Compiled);
 
     // Loaded models from llama-swap /running

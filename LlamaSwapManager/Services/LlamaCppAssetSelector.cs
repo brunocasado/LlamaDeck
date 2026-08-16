@@ -293,19 +293,20 @@ internal sealed class LlamaCppAssetSelector
         IReadOnlyList<CudaAsset> CudartAssets);
 
     /// <summary>
-    /// Regex to parse CUDA version from asset names like "llama-cuda12.4-win-cuda-12.4-x64-release.tar.gz".
-    /// Captures major.minor (and optional patch) as group 1.
+    /// Regex to parse CUDA version from asset names like "llama-b9670-bin-win-cuda-12.4-x64-release.tar.gz".
+    /// Captures major.minor (and optional patch) as group 1. The version follows "cuda"
+    /// with a dash or underscore separator (e.g. "cuda-12.4").
     /// </summary>
     private static readonly Regex CudaAssetVersionRegex = new(
-        @"cuda(\d+\.\d+(?:\.\d+)?)",
+        @"cuda[\-_](\d+\.\d+(?:\.\d+)?)",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>
     /// Regex to match cudart runtime assets.
-    /// Matches patterns like "cudart-cuda12.4-win-12.4-x64.tar.gz" or "cudart-cuda-12.4-ubuntu-x64.tar.gz".
+    /// Matches patterns like "cudart-llama-bin-win-cuda-12.4-x64.zip" or "cudart-cuda-12.4-ubuntu-x64.tar.gz".
     /// </summary>
     private static readonly Regex CudartAssetRegex = new(
-        @"cudart-cuda[\-_](\d+\.\d+(?:\.\d+)?)",
+        @"cudart.*cuda[\-_](\d+\.\d+(?:\.\d+)?)",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>
@@ -320,7 +321,7 @@ internal sealed class LlamaCppAssetSelector
     /// Parse CUDA-related assets from a GitHub release.
     /// Returns both llama CUDA builds and cudart runtime assets.
     /// </summary>
-    private List<CudaAsset> ParseCudaAssets(JsonElement release)
+    internal List<CudaAsset> ParseCudaAssets(JsonElement release)
     {
         var cudaAssets = new List<CudaAsset>();
 

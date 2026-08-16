@@ -47,10 +47,18 @@ internal sealed class LlamaCppVersionDetector
         if (string.IsNullOrWhiteSpace(output))
             return null;
 
-        var match = Regex.Match(output, @"version:\s+(\d+)", RegexOptions.IgnoreCase);
+        // New format (b10442+): "version: 0.1.0-dev (build 10442, commit 9b0a2ce85)"
+        // Extract the build number from "build NNNN"
+        var match = Regex.Match(output, @"\bbuild\s+(\d+)", RegexOptions.IgnoreCase);
         if (match.Success)
             return $"b{match.Groups[1].Value}";
 
+        // Old format: "version: 9553"
+        match = Regex.Match(output, @"version:\s+(\d+)", RegexOptions.IgnoreCase);
+        if (match.Success)
+            return $"b{match.Groups[1].Value}";
+
+        // Fallback: extract commit hash
         match = Regex.Match(output, @"\(([0-9a-fA-F]{5,})\)");
         if (!match.Success)
             return null;
